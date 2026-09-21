@@ -1,0 +1,13 @@
+# Ownership mirrors the "Where to start, by role" table in the handbook.
+# Replace the placeholder handles as the team grows.
+
+*                     @omaid
+/app/rules.py         @omaid          # rules & calculations — qualified sign-off for parameters
+/data/rules.json      @omaid          # rule parameters: NEVER merge without sign-off note
+/app/service.py       @omaid          # scope check, tier floor, decision lock
+/app/main.py          @omaid
+/app/store.py         @omaid
+/app/adapters.py      @omaid          # field minimisation: adapters return only listed fields
+/agent/               @omaid          # Zone 2 source of truth; tool schemas are the Zone 3 contract
+/app/templates/review.html @omaid     # decision buttons stay locked until transcript stored
+/tests/               @omaid          # never remove a test that guards an invariant

@@ -1,0 +1,33 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app tests
+      - run: mypy app
+      # Domain suite: stdlib only, no network, no ElevenLabs account
+      - run: python -m unittest -v
+      # Full suite incl. edge/API tests, with coverage gate
+      - run: coverage run -m pytest -q && coverage report --fail-under=85
+
+  agent-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Zone 2 config is JSON reviewed like code; validate it parses and
+      # (on main, when a key is configured) preview the platform diff.
+      - run: python -c "import json,glob; [json.load(open(p)) for p in glob.glob('agent/**/*.json', recursive=True)]; print('agent configs valid')"
+      - if: github.ref == 'refs/heads/main'
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          if [ -n "$ELEVENLABS_API_KEY" ]; then
+            npx --yes @elevenlabs/cli agents push --dry-run || echo "::warning::agents push dry-run failed; verify field names against current docs"
+          else
+            echo "no ELEVENLABS_API_KEY secret; skipping dry-run"
+          fi
