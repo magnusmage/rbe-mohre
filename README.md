@@ -112,3 +112,7 @@ a test class in `tests/test_usecases.py`; the demo scripts in
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) — invariants, role ownership, the
 seven steps for adding a check, and the PR checklist.
+
+## License
+
+[Apache License 2.0](LICENSE).
