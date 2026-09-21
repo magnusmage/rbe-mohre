@@ -1,0 +1,102 @@
+[
+  {
+    "worker_id": "WRK-1001", "case_ref": "LAB-1001", "pin": "4821",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 3000, "total_wage": 5000,
+    "start_date": "2022-01-01", "end_date": null,
+    "wps": [{"period": "2026-07", "paid": 4000, "paid_on": "2026-08-01"}],
+    "settlement_offer": null,
+    "_uc": "UC-01/02/07/11/12: wage discrepancy AED 1000; no WPS line for other months"
+  },
+  {
+    "worker_id": "WRK-1002", "case_ref": "LAB-1002", "pin": "5732",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 3000, "total_wage": 4200,
+    "start_date": "2021-03-01", "end_date": null,
+    "wps": [
+      {"period": "2026-06", "paid": 4200, "paid_on": "2026-07-01"},
+      {"period": "2026-07", "paid": 3500, "paid_on": "2026-08-01",
+       "deduction": 700, "deduction_reason_recorded": "damage"}
+    ],
+    "settlement_offer": null,
+    "_uc": "UC-03: contested AED 700 deduction; June stays clear (deduction is per checked month)"
+  },
+  {
+    "worker_id": "WRK-1003", "case_ref": "LAB-1003", "pin": "9104",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 3000, "total_wage": 4500,
+    "start_date": "2019-06-01", "end_date": "2026-08-31",
+    "wps": [],
+    "settlement_offer": 8000,
+    "_uc": "UC-13: gratuity 17272.60 vs offer 8000 -> shortfall 9272.60"
+  },
+  {
+    "worker_id": "WRK-1004", "case_ref": "LAB-1004", "pin": "2648",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 2500, "total_wage": 3800,
+    "start_date": "2020-02-01", "end_date": null,
+    "wps": [
+      {"period": "2026-04", "paid": 3800, "paid_on": "2026-05-12"},
+      {"period": "2026-05", "paid": 3800, "paid_on": "2026-06-10"},
+      {"period": "2026-06", "paid": 3800, "paid_on": "2026-07-10"}
+    ],
+    "settlement_offer": null,
+    "_uc": "UC-14/05: April clear under 598/2022; May ambiguous (transition); June late under 340/2026"
+  },
+  {
+    "worker_id": "WRK-1005", "case_ref": "LAB-1005", "pin": "7351",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 1800, "total_wage": 2200,
+    "start_date": "2023-05-01", "end_date": null,
+    "wps": [{"period": "2026-07", "paid": 2200, "paid_on": "2026-08-01"}],
+    "settlement_offer": null,
+    "_uc": "UC-15: WPS says paid, worker says card held / cash shortfall"
+  },
+  {
+    "worker_id": "WRK-1006", "case_ref": "LAB-1006", "pin": "6209",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 2000, "total_wage": 2600,
+    "start_date": "2021-09-01", "end_date": null,
+    "establishment_compliance_pct": 91,
+    "wps": [{"period": "2026-07", "paid": 0, "paid_on": null}],
+    "settlement_offer": null,
+    "_uc": "UC-16: employer WPS-compliant overall, this worker unpaid"
+  },
+  {
+    "worker_id": "WRK-1007", "case_ref": "LAB-1007", "pin": "3487",
+    "category": "domestic_worker", "zone": "mainland",
+    "basic_wage": 1500, "total_wage": 1500,
+    "start_date": "2023-01-01", "end_date": null,
+    "wps": [],
+    "settlement_offer": null,
+    "_uc": "UC-17: separate regime (Federal Law 9/2022); routed, never calculated"
+  },
+  {
+    "worker_id": "WRK-1008", "case_ref": "LAB-1008", "pin": "5560",
+    "category": "private_sector", "zone": "DIFC",
+    "basic_wage": 8000, "total_wage": 12000,
+    "start_date": "2020-01-01", "end_date": null,
+    "wps": [],
+    "settlement_offer": null,
+    "_uc": "UC-06: DIFC employee, outside MoHRE jurisdiction"
+  },
+  {
+    "worker_id": "WRK-1009", "case_ref": "LAB-1009", "pin": "8123",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 2200, "total_wage": 3000,
+    "start_date": "2019-11-01", "end_date": null,
+    "wage_claim_in_court_periods": ["2026-04"],
+    "wps": [{"period": "2026-04", "paid": 0, "paid_on": null}],
+    "settlement_offer": null,
+    "_uc": "UC-18: wage claim for 2026-04 already in court; not re-checked"
+  },
+  {
+    "worker_id": "WRK-1010", "case_ref": "LAB-1010", "pin": "4455",
+    "category": "private_sector", "zone": "mainland",
+    "basic_wage": 3000, "total_wage": 4000,
+    "start_date": "2022-01-01", "end_date": "2026-08-31",
+    "wps": [{"period": "2026-07", "paid": 4000, "paid_on": "2026-08-01"}],
+    "settlement_offer": 12000,
+    "_uc": "UC-04: clear entitlement; offer covers calculated gratuity"
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "payment_timing": [
+    {"rule_id": "WPS-598-2022", "source": "Ministerial Resolution 598 of 2022 (repealed)",
+     "effective_from": "2022-01-01", "effective_to": "2026-05-31",
+     "due_day_of_following_month": 1, "late_after_day": 15, "compliance_threshold_pct": 80},
+    {"rule_id": "WPS-340-2026", "source": "Ministerial Resolution 340 of 2026",
+     "effective_from": "2026-06-01", "effective_to": null,
+     "due_day_of_following_month": 1, "late_after_day": 1, "compliance_threshold_pct": 85}
+  ],
+  "gratuity": {"rule_id": "EOS-FDL33-51", "min_service_years": 1,
+               "days_per_year_first_5": 21, "days_per_year_after_5": 30,
+               "daily_wage_divisor": 30, "cap_months_of_wage": 24,
+               "sign_off_required": "daily wage divisor and pro-rata treatment"},
+  "scope": {"free_zones_outside_mohre": ["DIFC", "ADGM"],
+            "separate_regimes": {"domestic_worker": "Federal Law 9 of 2022 (domestic workers)"}}
+}
