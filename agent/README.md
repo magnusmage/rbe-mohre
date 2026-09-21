@@ -1,4 +1,4 @@
-# agent/ — Zone 2 source of truth (configured, not coded)
+# agent/: Zone 2 source of truth (configured, not coded)
 
 Everything the ElevenLabs platform runs is defined here and reviewed like
 code. Nothing in this folder executes locally; it is applied to the platform
@@ -10,9 +10,9 @@ with the official **ElevenLabs Agents CLI** and checked by a unit test
 
 ```
 agent/
-├── agents.json            index of agents → agent_configs/
-├── tools.json             index of tools  → tool_configs/   (8 webhook tools)
-├── tests.json             index of tests  → test_configs/   (S1–S10, 5 runs each)
+├── agents.json            index of agents -> agent_configs/
+├── tools.json             index of tools  -> tool_configs/   (8 webhook tools)
+├── tests.json             index of tests  -> test_configs/   (S1-S10, 5 runs each)
 ├── agent_configs/rbe_agent.json
 ├── tool_configs/*.json    one file per server tool; the contract with Zone 3
 ├── test_configs/s01..s10.json
@@ -32,7 +32,7 @@ elevenlabs agents push --dry-run      # preview the diff
 elevenlabs agents push                # apply
 ```
 
-Field names follow the ElevenLabs Agents API as of mid-2026 — **verify
+Field names follow the ElevenLabs Agents API as of mid-2026. **Verify
 against the current docs when you configure**, and fill in the
 placeholders: control-plane host URL in every `tool_configs/*.json`,
 `AGENT_TOOL_TOKEN` as a workspace secret referenced by ID, voice IDs in
@@ -41,7 +41,7 @@ placeholders: control-plane host URL in every `tool_configs/*.json`,
 ## Two details that carry security
 
 1. `conversation_id` is filled by the platform from the system dynamic
-   variable (`system__conversation_id`), **never by the LLM** — otherwise a
+   variable (`system__conversation_id`), **never by the LLM**; otherwise a
    manipulated model could send another call's ID.
 2. The bearer token is a workspace secret referenced by ID, so it never
    appears in the prompt, the repo or the model context.

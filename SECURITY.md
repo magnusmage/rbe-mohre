@@ -2,7 +2,7 @@
 
 - Two bearer tokens, never equal: `AGENT_TOOL_TOKEN` (only `/tools/*`) and
   `REVIEWER_TOKEN` (only `/review/*`, `/audit/*`). The agent token cannot
-  reach any decision endpoint — enforced in code and tested.
+  reach any decision endpoint; enforced in code and tested.
 - The ElevenLabs API key exists only server-side to mint signed URLs; the
   browser never sees it.
 - Post-call webhook: HMAC-SHA256 over raw bytes, 30-minute replay window,

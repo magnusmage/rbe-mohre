@@ -34,7 +34,7 @@ def verify(header: str, raw_body: bytes, secret: str,
 
 
 def sign(raw_body: bytes, secret: str, now: float | None = None) -> str:
-    """Produce a valid header — used by tests only."""
+    """Produce a valid header; used by tests only."""
     ts = int(time.time() if now is None else now)
     sig = hmac.new(secret.encode(), f"{ts}.".encode() + raw_body,
                    hashlib.sha256).hexdigest()

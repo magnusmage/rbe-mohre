@@ -1,6 +1,6 @@
-# D2 — No embeddings or RAG server-side
+# D2: No embeddings or RAG server-side
 
-**Status:** accepted · **Zone:** 3
+**Status:** accepted / **Zone:** 3
 
 Knowledge-base retrieval runs inside the ElevenLabs platform, over public
 rule texts only, with citations. Zone 3 holds rule **parameters**

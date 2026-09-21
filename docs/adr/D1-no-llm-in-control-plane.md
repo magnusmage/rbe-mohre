@@ -1,6 +1,6 @@
-# D1 — No LLM anywhere in the control plane
+# D1: No LLM anywhere in the control plane
 
-**Status:** accepted · **Zone:** 3
+**Status:** accepted / **Zone:** 3
 
 The LLM lives only in the ElevenLabs Agents Platform (Zone 2). Zone 3 is
 FastAPI at the edge and standard-library Python inside: it authenticates,

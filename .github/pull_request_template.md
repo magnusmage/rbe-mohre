@@ -4,12 +4,12 @@
 
 ## Invariant review (all six, every PR)
 
-- [ ] 1. LLM explains, never calculates or decides — no endpoint reachable by the agent records a decision
-- [ ] 2. One call, one worker, one case — new tools go through `_run` / `_scoped`
+- [ ] 1. LLM explains, never calculates or decides: no endpoint reachable by the agent records a decision
+- [ ] 2. One call, one worker, one case: new tools go through `_run` / `_scoped`
 - [ ] 3. Records and allegations never merge
-- [ ] 4. Fail closed — `DependencyDown` maps to `dependency_unavailable`, no guessed conclusion
+- [ ] 4. Fail closed: `DependencyDown` maps to `dependency_unavailable`, no guessed conclusion
 - [ ] 5. Tiers only go up
-- [ ] 6. Everything audited, append-only — refusal paths write audit rows too
+- [ ] 6. Everything audited, append-only: refusal paths write audit rows too
 
 ## Security checklist
 

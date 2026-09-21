@@ -1,4 +1,4 @@
-# Voices — one per language, Eleven v3
+# Voices: one per language, Eleven v3
 
 | Language | Voice ID | Notes |
 |---|---|---|
