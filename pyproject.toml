@@ -1,0 +1,26 @@
+[project]
+name = "rbe"
+version = "0.1.0"
+description = "Resolve Before It Escalates — MoHRE worker-rights voice agent control plane"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["B008"]  # FastAPI Depends() in defaults is idiomatic
+
+[tool.mypy]
+python_version = "3.11"
+strict = false            # sprint task: raise to strict on app/
+files = ["app"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["app"]
