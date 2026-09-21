@@ -1,5 +1,7 @@
 # Resolve Before It Escalates (RBE)
 
+[![ci](https://github.com/magnusmage/rbe-mohre/actions/workflows/ci.yml/badge.svg)](https://github.com/magnusmage/rbe-mohre/actions/workflows/ci.yml)
+
 A voice agent for MoHRE worker-rights checks. A worker calls about pay, a
 deduction, payment timing or an exit settlement; the agent checks the
 question against **that worker's own contract, WPS record and the rule in
@@ -11,17 +13,17 @@ decides anything.
 > **Synthetic data only.** Every response carries `X-Data-Mode: synthetic`.
 > Rule-matching logic requires qualified sign-off before any launch.
 
-Built for the Ignyte × ElevenLabs Future of Voice AI Challenge 2026 —
-Track 2, Government Services · Rights Checks & Dispute Prevention.
+Built for the Ignyte x ElevenLabs Future of Voice AI Challenge 2026,
+Track 2, Government Services / Rights Checks & Dispute Prevention.
 
 ## Architecture in one paragraph
 
 Four zones split by trust boundary. **Zone 1** (caller): a web page with the
 ElevenLabs Web SDK on a short-lived signed URL. **Zone 2** (ElevenLabs
 platform): Scribe v2 STT, Agents Platform + Workflows (five nodes,
-per-node tool scoping), Eleven v3 TTS, Knowledge Base of public rule texts —
+per-node tool scoping), Eleven v3 TTS, Knowledge Base of public rule texts,
 *configured, not coded*, from the [`agent/`](agent/) folder. **Zone 3** (this
-control plane): FastAPI at the edge, standard-library Python inside — scope
+control plane): FastAPI at the edge, standard-library Python inside: scope
 enforcement, Decimal arithmetic on effective-dated rules, allegation/record
 separation, tiering, specialist queue, append-only audit. **No LLM anywhere
 in Zone 3.** **Zone 4**: existing MoHRE systems, reached read-only through
@@ -49,21 +51,25 @@ rbe/
 │   ├── normalise.py     EDGE   Arabic-Indic & Urdu digits, ID and period patterns
 │   ├── service.py       DOMAIN the 8 agent tools + specialist decision; scope, audit
 │   ├── rules.py         DOMAIN wage / timing / gratuity / scope; Decimal; effective-dated
-│   ├── registry.py      DOMAIN node→tool map; reviewer-only actions
+│   ├── registry.py      DOMAIN node->tool map; reviewer-only actions
 │   ├── quality.py       DOMAIN post-call grounding check
 │   ├── store.py         DATA   sqlite3 now, Postgres later; append-only audit triggers
 │   ├── adapters.py      DATA   Protocols to MoHRE systems; synthetic implementations
 │   └── templates/       call page (Web SDK) + specialist review queue
-├── agent/               Zone 2 source of truth — ElevenLabs Agents-CLI layout
+├── agent/               Zone 2 source of truth, ElevenLabs Agents-CLI layout
 ├── data/                synthetic fixtures (one per use case) + effective-dated rules
 ├── tests/               28 domain tests (stdlib, no network) + api/ edge tests
-├── load/                locust: tool endpoints at 2× annualised 80084 volume
-├── docs/adr/            architecture decisions D1–D9 · docs/ROADMAP.md phases
+├── load/                locust: tool endpoints at 2x annualised 80084 volume
+├── docs/adr/            architecture decisions D1-D9 / docs/ROADMAP.md phases
 └── .github/             CI (lint, types, tests, coverage, agent-config), CODEOWNERS, PR template
 ```
 
+The product case (problem, evidence, what the system refuses to do) is in
+[docs/product.md](docs/product.md). Diagrams (the zone map, the end-to-end call sequence and the review flow,
+with the full connection table) are in [docs/architecture.md](docs/architecture.md).
+
 Layering rule (enforced by `tests/test_layering.py`): DOMAIN and DATA import
-the **standard library only** — no FastAPI, no Pydantic, no httpx, no LLM
+the **standard library only**: no FastAPI, no Pydantic, no httpx, no LLM
 SDKs. The whole domain suite runs in milliseconds with no network.
 
 ## Run it
@@ -87,17 +93,19 @@ token and decide the item once the transcript webhook arrives.
 
 OpenAPI at `/docs` doubles as the tool contract. Tool endpoints return
 HTTP 200 with `ok:false` + a spoken `say` sentence for business refusals;
-HTTP errors are reserved for auth and malformed input. See the developer
-handbook for the full endpoint table and error codes.
+HTTP errors are reserved for auth and malformed input. The connection
+table in [docs/architecture.md](docs/architecture.md) lists auth and
+failure behaviour per boundary; error-code handling for the agent is in
+[agent/workflow.md](agent/workflow.md).
 
 ## Use cases
 
-UC-01…UC-20 (wage discrepancy, missing evidence, contested deduction,
-effective-dated rule change across Res. 598/2022 → Res. 340/2026, settlement
+UC-01 to UC-20 (wage discrepancy, missing evidence, contested deduction,
+effective-dated rule change across Res. 598/2022 to Res. 340/2026, settlement
 check before signing, record-vs-allegation, domestic worker routing, scope
 violations, outages, opt-out). Each has a fixture in `data/workers.json` and
 a test class in `tests/test_usecases.py`; the demo scripts in
-`agent/test_configs/` mirror them as Agent Testing scenarios S1–S10.
+`agent/test_configs/` mirror them as Agent Testing scenarios S1-S10.
 
 ## Key dates
 
@@ -106,11 +114,11 @@ a test class in `tests/test_usecases.py`; the demo scripts in
 | 23 Sep 2026 | Stage 1 canvas due (tag `stage1-2026-09-23`) |
 | 30 Sep | Shortlist; build sprint starts |
 | 14 Oct | Stage 2 due (tag `stage2-2026-10-14`) |
-| 26–27 Oct | Demo Day |
+| 26-27 Oct | Demo Day |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — invariants, role ownership, the
+See [CONTRIBUTING.md](CONTRIBUTING.md): invariants, role ownership, the
 seven steps for adding a check, and the PR checklist.
 
 ## License
