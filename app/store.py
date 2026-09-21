@@ -53,6 +53,11 @@ class Store:
         self.workers: dict = workers or {}
         self.rules: dict = rules or {}
         self._seq = 0
+        # Adapter attachment points (C6/C7): set by the composition root
+        # (main.py) or by tests; service._adapters fills in synthetic
+        # defaults when left as None.
+        self.contracts = None
+        self.wps = None
 
     # ------------------------------------------------------------- plumbing
     def _w(self, sql: str, args=()):

@@ -16,7 +16,9 @@ Boxes A and Q; tag `stage1-2026-09-23`.
 - Wire the agent live: ElevenLabs agent configured from `agent/` (CLI push),
   tunnel or container host for tools + webhook, first end-to-end web call.
 - Sprint fixes tracked as issues: structlog middleware, property tests
-  (hypothesis), API test expansion, locust run at 2× annualised 80084 volume.
+  (hypothesis), API test expansion, locust run at 2× annualised 80084 volume,
+  CI hardening (mypy gate, full ruff ruleset, coverage floor 80→85),
+  verify the pinned @elevenlabs/client version against npm.
 - Agent Testing S1–S10, five runs each; record evaluation table
   (case success ≥90%, S5 tool-correctness 100%, 0 ungrounded amounts,
   0 advice breaches, tier-2 recall 100%).

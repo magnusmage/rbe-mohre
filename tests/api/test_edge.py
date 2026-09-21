@@ -8,7 +8,7 @@ import httpx
 import respx
 from fastapi.testclient import TestClient
 
-from app.main import app, store
+from app.main import app
 from app.signature import sign
 from app.settings import settings
 

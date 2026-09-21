@@ -8,7 +8,7 @@ Every amount is Decimal; every check returns a CheckResult with a reviewed
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 
@@ -133,7 +133,7 @@ def select_timing_rule(rules: dict, due_date: date) -> dict:
     raise LookupError("no_rule_for_date")
 
 
-def _due_date(period: str, rules_row: dict | None = None) -> date:
+def _due_date(period: str) -> date:
     y, m = int(period[:4]), int(period[5:7])
     m += 1
     if m == 13:

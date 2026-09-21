@@ -38,9 +38,9 @@ class ScopeError(Exception):
 def _adapters(store: Store):
     """Adapters are attached at composition (main.py / tests). Default:
     synthetic adapters over the fixture set."""
-    if not hasattr(store, "contracts"):
+    if store.contracts is None:
         store.contracts = SyntheticContracts(store.workers)
-    if not hasattr(store, "wps"):
+    if store.wps is None:
         store.wps = SyntheticWPS(store.workers)
     return store.contracts, store.wps
 
@@ -106,7 +106,10 @@ def verify_session(store: Store, conv: str, worker_id: str, case_ref: str, pin: 
                        "please make a new call.", ref)
     try:
         contracts, _ = _adapters(store)
-        contract = contracts.contract(wid) if wid in store.workers else None
+        try:
+            contract = contracts.contract(wid)
+        except KeyError:
+            contract = None
     except DependencyDown:
         return _refuse(store, conv, "verify_session", "dependency_unavailable",
                        "I can't reach the records right now, so I can't verify you. "

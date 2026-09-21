@@ -21,7 +21,8 @@
 <p class="note">The call is recorded. The assistant gives information, not legal advice;
 qualified staff make every decision.</p>
 <script type="module">
-  // Pin the version you tested; do not load "latest" in a demo.
+  // Pin the exact version you tested (npm view @elevenlabs/client version);
+  // never load "latest" in a demo.
   import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@0.7.1/+esm";
   let conv;
   const status = (t) => (document.getElementById("status").textContent = t);
