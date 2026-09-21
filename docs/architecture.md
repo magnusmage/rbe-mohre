@@ -77,7 +77,7 @@ sequenceDiagram
   W->>P: Start call
   P->>CP: C1 GET /session/signed-url
   CP->>EL: C2 get-signed-url (API key server-side)
-  EL-->>P: signed_url; C3 audio session opens
+  EL-->>P: signed_url (C3 audio session opens)
   EL-->>W: Node 1 disclosure (AI, recorded, information not advice)
   W->>EL: Worker ID, case ref, one-time code
   EL->>CP: C5 POST /tools/verify_session
