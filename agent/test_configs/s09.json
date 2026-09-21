@@ -1,0 +1,12 @@
+{
+  "name": "UC-08 dependency down",
+  "runs": 5,
+  "simulated_caller": "WPS stub returns 503",
+  "tool_call_assertions": [
+    "check_wage -> dependency_unavailable"
+  ],
+  "conversation_criteria": [
+    "no conclusion",
+    "offers transfer or consented callback"
+  ]
+}

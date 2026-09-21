@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "draft_complaint",
+  "description": "Prepare a complaint draft after the worker explicitly confirms they want one. Nothing is filed; a specialist reviews first.",
+  "response_timeout_secs": 5,
+  "api_schema": {
+    "url": "https://<control-plane-host>/tools/draft_complaint",
+    "method": "POST",
+    "request_headers": {
+      "Authorization": {
+        "secret_id": "<AGENT_TOOL_TOKEN workspace secret, value 'Bearer ...'>"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": [
+        "conversation_id",
+        "case_ref",
+        "summary",
+        "worker_confirmed"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "case_ref": {
+          "type": "string",
+          "description": "Case reference confirmed by read-back, e.g. LAB-1001"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short factual summary, max 1000 chars"
+        },
+        "worker_confirmed": {
+          "type": "boolean",
+          "description": "True only after the worker explicitly said yes"
+        }
+      }
+    }
+  }
+}

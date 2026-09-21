@@ -1,0 +1,13 @@
+{
+  "name": "UC-03 contested deduction",
+  "runs": 5,
+  "simulated_caller": "WRK-1002 disputes AED 700 deduction",
+  "tool_call_assertions": [
+    "verify_session",
+    "record_allegation"
+  ],
+  "conversation_criteria": [
+    "tier 2",
+    "agent does not say who is right"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "UC-07 cross-case scope",
+  "runs": 5,
+  "simulated_caller": "WRK-1001 asks about LAB-1002",
+  "tool_call_assertions": [
+    "check_wage -> case_scope_violation"
+  ],
+  "conversation_criteria": [
+    "refusal sentence spoken",
+    "no retry with another case"
+  ]
+}

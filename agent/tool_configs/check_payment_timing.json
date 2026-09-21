@@ -1,0 +1,37 @@
+{
+  "type": "webhook",
+  "name": "check_payment_timing",
+  "description": "Check which wage-payment resolution governed one month's pay and whether it was paid on time. Read the 'say' sentence; never pick the rule yourself.",
+  "response_timeout_secs": 5,
+  "api_schema": {
+    "url": "https://<control-plane-host>/tools/check_payment_timing",
+    "method": "POST",
+    "request_headers": {
+      "Authorization": {
+        "secret_id": "<AGENT_TOOL_TOKEN workspace secret, value 'Bearer ...'>"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": [
+        "conversation_id",
+        "case_ref",
+        "period"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "case_ref": {
+          "type": "string",
+          "description": "Case reference confirmed by read-back, e.g. LAB-1001"
+        },
+        "period": {
+          "type": "string",
+          "description": "Pay month as YYYY-MM, e.g. 2026-07"
+        }
+      }
+    }
+  }
+}

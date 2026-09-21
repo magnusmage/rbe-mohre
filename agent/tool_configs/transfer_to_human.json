@@ -1,0 +1,40 @@
+{
+  "type": "webhook",
+  "name": "transfer_to_human",
+  "description": "Transfer to a person now, or arrange a callback only with explicit consent. Use immediately when the caller says 'human' or 'stop', or consent is withdrawn.",
+  "response_timeout_secs": 5,
+  "api_schema": {
+    "url": "https://<control-plane-host>/tools/transfer_to_human",
+    "method": "POST",
+    "request_headers": {
+      "Authorization": {
+        "secret_id": "<AGENT_TOOL_TOKEN workspace secret, value 'Bearer ...'>"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": [
+        "conversation_id",
+        "reason"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why the transfer, max 200 chars"
+        },
+        "callback": {
+          "type": "boolean",
+          "description": "True to request a callback instead of live transfer"
+        },
+        "consent": {
+          "type": "boolean",
+          "description": "True only if the caller consented to a callback"
+        }
+      }
+    }
+  }
+}

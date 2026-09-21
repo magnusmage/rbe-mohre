@@ -1,0 +1,51 @@
+{
+  "name": "rbe-worker-rights",
+  "conversation_config": {
+    "agent": {
+      "prompt": {
+        "prompt": "{{file:../system_prompt.md}}",
+        "llm": "<chosen-in-platform>",
+        "temperature": 0.2,
+        "tools": [
+          "verify_session",
+          "check_wage",
+          "check_payment_timing",
+          "check_settlement",
+          "record_allegation",
+          "draft_complaint",
+          "send_to_review",
+          "transfer_to_human"
+        ],
+        "knowledge_base": [
+          "kb: public rule texts only, see ../kb/sources.md"
+        ]
+      },
+      "first_message": "This is MoHRE's AI assistant. This call is recorded. I give information, not legal advice, and qualified staff make every decision. How can I help?",
+      "language": "en",
+      "additional_languages": [
+        "ar",
+        "ur"
+      ]
+    },
+    "asr": {
+      "provider": "elevenlabs",
+      "model": "scribe_v2_realtime",
+      "keyterms_file": "../keyterms.txt"
+    },
+    "tts": {
+      "model": "eleven_v3",
+      "voice_notes": "one voice per language, see ../voices.md",
+      "speed_for_numbers": "slower"
+    },
+    "conversation": {
+      "max_duration_seconds": 900
+    }
+  },
+  "workflow_notes": "Five nodes with per-node tool scoping; must mirror app/registry.py NODE_TOOLS. See ../workflow.md.",
+  "platform_settings": {
+    "post_call_webhook": {
+      "url": "https://<control-plane-host>/webhooks/elevenlabs/post-call",
+      "auth": "HMAC secret in workspace settings"
+    }
+  }
+}

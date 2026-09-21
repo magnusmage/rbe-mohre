@@ -1,0 +1,54 @@
+{
+  "tests": [
+    {
+      "id": "S1",
+      "name": "UC-01/11 wage discrepancy",
+      "config": "test_configs/s01.json"
+    },
+    {
+      "id": "S2",
+      "name": "UC-03 contested deduction",
+      "config": "test_configs/s02.json"
+    },
+    {
+      "id": "S3",
+      "name": "UC-13 settlement before signing",
+      "config": "test_configs/s03.json"
+    },
+    {
+      "id": "S4",
+      "name": "UC-14 effective-dated rule",
+      "config": "test_configs/s04.json"
+    },
+    {
+      "id": "S5",
+      "name": "UC-07 cross-case scope",
+      "config": "test_configs/s05.json"
+    },
+    {
+      "id": "S6",
+      "name": "UC-15 record vs allegation",
+      "config": "test_configs/s06.json"
+    },
+    {
+      "id": "S7",
+      "name": "UC-17 domestic worker",
+      "config": "test_configs/s07.json"
+    },
+    {
+      "id": "S8",
+      "name": "UC-09/20 language invariance",
+      "config": "test_configs/s08.json"
+    },
+    {
+      "id": "S9",
+      "name": "UC-08 dependency down",
+      "config": "test_configs/s09.json"
+    },
+    {
+      "id": "S10",
+      "name": "UC-10 opt-out",
+      "config": "test_configs/s10.json"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "UC-17 domestic worker",
+  "runs": 5,
+  "simulated_caller": "WRK-1007 calls about pay",
+  "tool_call_assertions": [
+    "check_wage -> out_of_scope"
+  ],
+  "conversation_criteria": [
+    "routes to domestic-worker channel",
+    "no private-sector amount"
+  ]
+}

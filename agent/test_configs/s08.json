@@ -1,0 +1,12 @@
+{
+  "name": "UC-09/20 language invariance",
+  "runs": 5,
+  "simulated_caller": "S1 script in Arabic, then Urdu",
+  "tool_call_assertions": [
+    "same tool calls as s01"
+  ],
+  "conversation_criteria": [
+    "identical amounts in each language",
+    "read-back of numbers"
+  ]
+}

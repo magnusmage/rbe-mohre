@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "send_to_review",
+  "description": "Send the case package to the specialist queue. Use the tier from any check on this call, or higher; the server enforces the floor.",
+  "response_timeout_secs": 5,
+  "api_schema": {
+    "url": "https://<control-plane-host>/tools/send_to_review",
+    "method": "POST",
+    "request_headers": {
+      "Authorization": {
+        "secret_id": "<AGENT_TOOL_TOKEN workspace secret, value 'Bearer ...'>"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": [
+        "conversation_id",
+        "case_ref",
+        "tier",
+        "summary"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "case_ref": {
+          "type": "string",
+          "description": "Case reference confirmed by read-back, e.g. LAB-1001"
+        },
+        "tier": {
+          "type": "string",
+          "description": "tier_0_standard_review | tier_1_priority_review | tier_2_mandatory_human"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short factual summary, max 1000 chars"
+        }
+      }
+    }
+  }
+}

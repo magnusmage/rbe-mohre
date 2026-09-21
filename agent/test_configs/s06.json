@@ -1,0 +1,12 @@
+{
+  "name": "UC-15 record vs allegation",
+  "runs": 5,
+  "simulated_caller": "WRK-1005: card held by supervisor",
+  "tool_call_assertions": [
+    "record_allegation"
+  ],
+  "conversation_criteria": [
+    "tier 2",
+    "no contradiction of the worker"
+  ]
+}

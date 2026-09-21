@@ -1,0 +1,8 @@
+{
+  "agents": [
+    {
+      "name": "rbe-worker-rights",
+      "config": "agent_configs/rbe_agent.json"
+    }
+  ]
+}

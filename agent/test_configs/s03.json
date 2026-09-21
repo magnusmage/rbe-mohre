@@ -1,0 +1,13 @@
+{
+  "name": "UC-13 settlement before signing",
+  "runs": 5,
+  "simulated_caller": "WRK-1003 asked to sign exit form",
+  "tool_call_assertions": [
+    "verify_session",
+    "check_settlement"
+  ],
+  "conversation_criteria": [
+    "speaks shortfall AED 9272.60",
+    "no sign / don't-sign wording"
+  ]
+}

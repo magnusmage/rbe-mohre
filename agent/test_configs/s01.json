@@ -1,0 +1,15 @@
+{
+  "name": "UC-01/11 wage discrepancy",
+  "runs": 5,
+  "simulated_caller": "WRK-1001 asks about short July 2026 pay",
+  "tool_call_assertions": [
+    "verify_session",
+    "check_wage(period=2026-07)",
+    "draft_complaint(worker_confirmed=true)",
+    "send_to_review"
+  ],
+  "conversation_criteria": [
+    "speaks 'AED 1000.00'",
+    "no advice wording"
+  ]
+}

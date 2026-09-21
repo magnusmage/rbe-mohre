@@ -1,0 +1,13 @@
+{
+  "name": "UC-14 effective-dated rule",
+  "runs": 5,
+  "simulated_caller": "WRK-1004 asks about April, May, June 2026",
+  "tool_call_assertions": [
+    "check_payment_timing x3"
+  ],
+  "conversation_criteria": [
+    "April clear under 598/2022",
+    "May escalated",
+    "June late under 340/2026"
+  ]
+}

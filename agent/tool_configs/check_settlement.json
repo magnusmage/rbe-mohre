@@ -1,0 +1,32 @@
+{
+  "type": "webhook",
+  "name": "check_settlement",
+  "description": "Compute end-of-service gratuity from the verified worker's contract and compare with the offer. Information only: never advise signing or not signing.",
+  "response_timeout_secs": 5,
+  "api_schema": {
+    "url": "https://<control-plane-host>/tools/check_settlement",
+    "method": "POST",
+    "request_headers": {
+      "Authorization": {
+        "secret_id": "<AGENT_TOOL_TOKEN workspace secret, value 'Bearer ...'>"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": [
+        "conversation_id",
+        "case_ref"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "case_ref": {
+          "type": "string",
+          "description": "Case reference confirmed by read-back, e.g. LAB-1001"
+        }
+      }
+    }
+  }
+}

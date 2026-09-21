@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "record_allegation",
+  "description": "Record the caller's own account of what happened, kept separate from record data. Never tell the caller the record proves them wrong.",
+  "response_timeout_secs": 5,
+  "api_schema": {
+    "url": "https://<control-plane-host>/tools/record_allegation",
+    "method": "POST",
+    "request_headers": {
+      "Authorization": {
+        "secret_id": "<AGENT_TOOL_TOKEN workspace secret, value 'Bearer ...'>"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": [
+        "conversation_id",
+        "case_ref",
+        "period",
+        "statement"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "case_ref": {
+          "type": "string",
+          "description": "Case reference confirmed by read-back, e.g. LAB-1001"
+        },
+        "period": {
+          "type": "string",
+          "description": "Pay month as YYYY-MM, e.g. 2026-07"
+        },
+        "statement": {
+          "type": "string",
+          "description": "The caller's statement, their words, max 300 chars"
+        }
+      }
+    }
+  }
+}

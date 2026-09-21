@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "verify_session",
+  "description": "Verify the caller and bind this call to one worker and case. Must be the first tool called. Read back worker ID, case reference and one-time code before calling.",
+  "response_timeout_secs": 5,
+  "api_schema": {
+    "url": "https://<control-plane-host>/tools/verify_session",
+    "method": "POST",
+    "request_headers": {
+      "Authorization": {
+        "secret_id": "<AGENT_TOOL_TOKEN workspace secret, value 'Bearer ...'>"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": [
+        "conversation_id",
+        "worker_id",
+        "case_ref",
+        "pin"
+      ],
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "case_ref": {
+          "type": "string",
+          "description": "Case reference confirmed by read-back, e.g. LAB-1001"
+        },
+        "worker_id": {
+          "type": "string",
+          "description": "Worker ID confirmed by read-back, e.g. WRK-1001"
+        },
+        "pin": {
+          "type": "string",
+          "description": "One-time code the caller read out"
+        }
+      }
+    }
+  }
+}

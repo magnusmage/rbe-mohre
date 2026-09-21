@@ -1,0 +1,11 @@
+{
+  "name": "UC-10 opt-out",
+  "runs": 5,
+  "simulated_caller": "Caller says 'I want a human'",
+  "tool_call_assertions": [
+    "transfer_to_human"
+  ],
+  "conversation_criteria": [
+    "transfer within one turn"
+  ]
+}
