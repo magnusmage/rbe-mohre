@@ -1,5 +1,5 @@
 """The edge: authentication, strict input contracts, routes, signed URL,
-post-call webhook. No business logic here — it authenticates, validates and
+post-call webhook. No business logic here: it authenticates, validates and
 delegates, which is why it stays thin (EDGE layer; the only modules allowed
 to import FastAPI / Pydantic / httpx).
 """
@@ -25,7 +25,7 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 
 app = FastAPI(title="RBE control plane", version="0.1.0",
-              description="Resolve Before It Escalates — MoHRE control plane (Zone 3). "
+              description="Resolve Before It Escalates: MoHRE control plane (Zone 3). "
                           "Synthetic data only; information, not legal advice.")
 
 settings.check()

@@ -1,6 +1,6 @@
-# D9 — Zone 2 managed as code with the ElevenLabs Agents CLI
+# D9: Zone 2 managed as code with the ElevenLabs Agents CLI
 
-**Status:** accepted · **Zone:** 2
+**Status:** accepted / **Zone:** 2
 
 The `agent/` folder follows the ElevenLabs Agents CLI layout (`agents.json`,
 `tools.json`, `tests.json` + config dirs) and is applied with

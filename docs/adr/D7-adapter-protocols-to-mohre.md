@@ -1,6 +1,6 @@
-# D7 — typing.Protocol adapters as the only seam to MoHRE systems
+# D7: typing.Protocol adapters as the only seam to MoHRE systems
 
-**Status:** accepted · **Zone:** 4 boundary
+**Status:** accepted / **Zone:** 4 boundary
 
 `ContractAdapter`, `WPSAdapter`, `CaseAdapter` are Protocols. The build uses
 synthetic implementations over `data/workers.json`; a pilot swaps in

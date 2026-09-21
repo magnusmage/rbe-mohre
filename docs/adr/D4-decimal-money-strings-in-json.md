@@ -1,4 +1,4 @@
-# D4 — Decimal money; amounts cross JSON as strings
+# D4: Decimal money; amounts cross JSON as strings
 
 **Status:** accepted
 

@@ -1,4 +1,4 @@
-# D8 — Append-only audit by trigger; decisions locked on transcript
+# D8: Append-only audit by trigger; decisions locked on transcript
 
 **Status:** accepted
 

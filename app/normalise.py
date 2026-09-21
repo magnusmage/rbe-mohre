@@ -1,7 +1,7 @@
 """What the caller said, in a form we can check.
 
 EDGE-adjacent but pure: standard library only. Arabic-Indic (U+0660-0669) and
-Eastern Arabic-Indic / Urdu (U+06F0-06F9) digits are normalised to ASCII —
+Eastern Arabic-Indic / Urdu (U+06F0-06F9) digits are normalised to ASCII;
 Urdu speakers commonly write the latter, and they differ (UC-09, UC-20).
 """
 from __future__ import annotations

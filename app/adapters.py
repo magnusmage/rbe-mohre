@@ -3,7 +3,7 @@
 DATA layer, standard library only. The domain depends on a Protocol, not a
 system: swapping synthetic data for a live read-only API is a new class in
 ``app/live/`` (pilot), not a change to the rules. Adapters return only the
-fields the rules need — that is the data-minimisation guarantee in code.
+fields the rules need; that is the data-minimisation guarantee in code.
 """
 from __future__ import annotations
 

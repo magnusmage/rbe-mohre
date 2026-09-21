@@ -1,4 +1,4 @@
-# D6 — Business refusals are HTTP 200 with ok:false and a say sentence
+# D6: Business refusals are HTTP 200 with ok:false and a say sentence
 
 **Status:** accepted
 
@@ -8,4 +8,4 @@ for authentication and malformed input.
 
 **Why.** The voice agent must speak a reviewed, safe sentence instead of
 hitting a platform error. Legal-boundary wording lives in code, reviewed in
-PRs — never improvised by the model.
+PRs, never improvised by the model.

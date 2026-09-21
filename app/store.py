@@ -1,7 +1,7 @@
 """Persistence: sqlite3 now, Postgres later, same method names.
 
 DATA layer, standard library only. The audit table is append-only by database
-trigger — even our own code cannot edit or delete it (invariant 6). Writes are
+trigger; even our own code cannot edit or delete it (invariant 6). Writes are
 serialised with a lock because FastAPI runs sync endpoints in a thread pool.
 """
 from __future__ import annotations

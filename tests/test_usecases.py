@@ -1,8 +1,8 @@
 """One test class per use case, plus platform-contract checks.
 
 Run with ``python -m unittest -v`` (no network, no ElevenLabs account) or
-``make test``. Every test guards a branch of the flows in the developer
-handbook; do not remove a test that guards an invariant.
+``make test``. Every test guards a branch of the flows in agent/workflow.md;
+do not remove a test that guards an invariant.
 """
 import json
 import time

@@ -3,7 +3,7 @@
 DOMAIN layer. Standard library only (enforced by tests/test_layering.py).
 Every amount is Decimal; every check returns a CheckResult with a reviewed
 ``say`` sentence. Nothing in this module decides anything
-(``binding_decision`` is always False) — invariant 1.
+(``binding_decision`` is always False); invariant 1.
 """
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ class CheckResult:
 
 
 def money(x) -> Decimal:
-    """Decimal(str(x)) first — never Decimal(float)."""
+    """Decimal(str(x)) first, never Decimal(float)."""
     return Decimal(str(x)).quantize(CENT, ROUND_HALF_UP)
 
 
@@ -194,7 +194,7 @@ def gratuity(basic_wage, start: date, end: date, g: dict) -> Decimal:
 
 def settlement_check(worker: dict, rules: dict) -> CheckResult:
     """UC-13/19. Calculated gratuity vs the offer, before the worker signs.
-    Information, never advice — the say sentence carries that boundary."""
+    Information, never advice; the say sentence carries that boundary."""
     out = scope_check(worker, rules)
     if out:
         return out
@@ -231,7 +231,7 @@ def settlement_check(worker: dict, rules: dict) -> CheckResult:
 def allegation_result(worker: dict, period: str, statement: str, rules: dict) -> CheckResult:
     """UC-03/15. The WPS record is a verified fact; the caller's account is an
     allegation. Both are kept, separately, and the agent never contradicts the
-    worker — invariant 3. Always tier 2."""
+    worker (invariant 3). Always tier 2."""
     out = scope_check(worker, rules, period)
     if out:
         return out

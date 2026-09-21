@@ -1,8 +1,8 @@
 # Contributing
 
 RBE is built for collaboration between the core team and reviewers from the
-ElevenLabs challenge. This file is the workflow contract; the developer
-handbook is the architecture contract.
+ElevenLabs challenge. This file is the workflow contract; docs/architecture.md
+and the ADRs in docs/adr/ are the architecture contract.
 
 ## The six invariants
 
@@ -36,7 +36,7 @@ never remove a test that guards an invariant.
 - Tag every build submitted to the challenge (`stage1-2026-09-23`,
   `stage2-2026-10-14`) so demos reproduce exactly.
 
-## Adding a new check — the seven steps
+## Adding a new check: the seven steps
 
 1. Parameters into `data/rules.json`, marked for sign-off.
 2. Pure rule in `app/rules.py`: scope first, `needs_evidence` when data is
