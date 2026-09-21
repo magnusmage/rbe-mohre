@@ -2,6 +2,8 @@
 name = "rbe"
 version = "0.1.0"
 description = "Resolve Before It Escalates — MoHRE worker-rights voice agent control plane"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 
 [tool.ruff]
