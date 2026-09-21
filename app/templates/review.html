@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Specialist review queue</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:860px;margin:40px auto;padding:0 16px;line-height:1.5}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #ddd;vertical-align:top}
+  .t2{color:#a02020;font-weight:600}.t1{color:#a8650e;font-weight:600}.t0{color:#555}
+  button{padding:4px 10px;margin:2px;border-radius:6px;border:1px solid #888;cursor:pointer}
+  button:disabled{opacity:.4;cursor:default}
+  #msg{color:#555}
+  input{padding:6px;font-size:14px}
+</style>
+</head>
+<body>
+<h1>Specialist review queue</h1>
+<p>Sorted tier 2 → 1 → 0. Decision buttons stay disabled until the HMAC-verified transcript is
+stored, and each item can be decided once.</p>
+<label>Reviewer token <input id="tok" type="password"></label>
+<label style="margin-left:12px">Your name <input id="who" value="specialist-1"></label>
+<button id="load">Load queue</button>
+<p id="msg" aria-live="polite"></p>
+<table id="q"><thead><tr><th>Ref</th><th>Case</th><th>Tier</th><th>Summary</th>
+<th>Transcript</th><th>Decision</th></tr></thead><tbody></tbody></table>
+<script>
+const DECISIONS = ["uphold_information","open_complaint","refer","request_more"];
+const msg = t => document.getElementById("msg").textContent = t;
+const hdrs = () => ({"Authorization":"Bearer "+document.getElementById("tok").value,
+                     "Content-Type":"application/json"});
+document.getElementById("load").onclick = load;
+async function load(){
+  const r = await fetch("/review/queue",{headers:hdrs()});
+  if(!r.ok){ msg("Could not load queue ("+r.status+")"); return; }
+  const {items} = await r.json();
+  const tb = document.querySelector("#q tbody"); tb.innerHTML = "";
+  msg(items.length + " open item(s)");
+  for(const it of items){
+    const tr = document.createElement("tr");
+    const tcls = it.tier.includes("tier_2")?"t2":it.tier.includes("tier_1")?"t1":"t0";
+    tr.innerHTML = `<td>${it.review_ref}</td><td>${it.case_ref}</td>
+      <td class="${tcls}">${it.tier}</td><td>${it.summary}</td>
+      <td>${it.transcript_ready?"stored":"pending"}</td><td></td>`;
+    const cell = tr.lastElementChild;
+    for(const d of DECISIONS){
+      const b = document.createElement("button");
+      b.textContent = d; b.disabled = !it.transcript_ready;   // decision lock, mirrored in UI
+      b.onclick = async () => {
+        const res = await fetch(`/review/${it.review_ref}/decision`,{method:"POST",
+          headers:hdrs(), body:JSON.stringify({decision:d,
+            reviewer:document.getElementById("who").value})});
+        msg(res.ok ? `${it.review_ref}: ${d}` : `Refused (${res.status})`);
+        load();
+      };
+      cell.appendChild(b);
+    }
+    tb.appendChild(tr);
+  }
+}
+</script>
+</body>
+</html>
