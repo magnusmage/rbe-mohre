@@ -47,7 +47,10 @@ chown rbe:rbe /var/lib/rbe
 
 say "source at $RBE_REF"
 if [ -d "$SRC/.git" ]; then
-  git -C "$SRC" fetch --tags origin
+  # --force: submission tags are retargeted to the final state before the
+  # deadline (project policy), and a plain fetch refuses to move a tag it
+  # already has, which aborted deploys in the field.
+  git -C "$SRC" fetch --tags --force origin
 else
   git clone "$RBE_REPO" "$SRC"
 fi
