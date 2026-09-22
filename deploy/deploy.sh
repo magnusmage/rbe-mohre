@@ -33,6 +33,11 @@ for c in python3.12 python3.11; do
 done
 [ -n "$PY" ] || die "python3.11+ is required (e.g. apt install python3.12-venv, or use uv)"
 
+say "pre-flight (read-only checks; SKIP_PREFLIGHT=1 to skip)"
+if [ "${SKIP_PREFLIGHT:-0}" != "1" ]; then
+  RBE_HOST="$RBE_HOST" bash "$(dirname "$0")/preflight.sh" || die "pre-flight failed; nothing was changed"
+fi
+
 say "system user and directories"
 id rbe >/dev/null 2>&1 || useradd --system --home /opt/rbe --shell /usr/sbin/nologin rbe
 mkdir -p /opt/rbe /var/lib/rbe /etc/rbe
