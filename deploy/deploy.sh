@@ -82,12 +82,21 @@ systemctl restart rbe
 sleep 2
 systemctl is-active --quiet rbe || { journalctl -u rbe -n 20 --no-pager; die "rbe.service failed to start"; }
 
-say "nginx site (scoped to $RBE_HOST; other sites untouched)"
-SITE=/etc/nginx/sites-available/$RBE_HOST.conf
-sed "s/rbe\.magnusmage\.com/$RBE_HOST/g" "$SRC/deploy/nginx/rbe.magnusmage.com.conf" > "$SITE"
-ln -sf "$SITE" "/etc/nginx/sites-enabled/$RBE_HOST.conf"
-nginx -t || die "nginx -t failed; NOT reloading (existing sites keep running)"
-systemctl reload nginx
+if [ "${SKIP_NGINX:-0}" = "1" ]; then
+  say "nginx step skipped (SKIP_NGINX=1): you manage the site config yourself"
+  echo "  reference config: $SRC/deploy/nginx/rbe.magnusmage.com.conf"
+  echo "  it must serve $SRC/web/dist and proxy the API paths to 127.0.0.1:8000"
+else
+  say "nginx site (scoped to $RBE_HOST; other sites untouched)"
+  SITE=/etc/nginx/sites-available/$RBE_HOST.conf
+  if [ -f "$SITE" ] && ! grep -qE "nginx site for .+ only\. Scoped by server_name" "$SITE" 2>/dev/null; then
+    die "$SITE exists but was not written by this script; keep your own config and re-run with SKIP_NGINX=1, or remove it first"
+  fi
+  sed "s/rbe\.magnusmage\.com/$RBE_HOST/g" "$SRC/deploy/nginx/rbe.magnusmage.com.conf" > "$SITE"
+  ln -sf "$SITE" "/etc/nginx/sites-enabled/$RBE_HOST.conf"
+  nginx -t || die "nginx -t failed; NOT reloading (existing sites keep running)"
+  systemctl reload nginx
+fi
 
 say "smoke test (local)"
 bash "$SRC/deploy/smoke_test.sh" "http://127.0.0.1:8000" --api-only
