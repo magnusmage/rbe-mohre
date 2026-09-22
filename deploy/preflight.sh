@@ -31,8 +31,10 @@ else
 fi
 if command -v python3.12 >/dev/null || command -v python3.11 >/dev/null; then
   ok "python3.11+ present"
+elif command -v uv >/dev/null; then
+  ok "uv present (provisions a standalone Python 3.12 for the venv)"
 else
-  bad "python3.11+ missing (python3.12 preferred)"
+  bad "python3.11+ missing: run install_prereqs.sh (installs uv, no apt involved)"
 fi
 command -v certbot >/dev/null && ok "certbot present" || warn "certbot missing: TLS step will need it (apt install certbot python3-certbot-nginx)"
 
