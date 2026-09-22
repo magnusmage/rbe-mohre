@@ -16,6 +16,10 @@ decides anything.
 Built for the Ignyte x ElevenLabs Future of Voice AI Challenge 2026,
 Track 2, Government Services / Rights Checks & Dispute Prevention.
 
+![RBE web console: the caller screen during a live call, with verified
+findings kept separate from the caller's allegation and a complaint draft
+waiting for explicit confirmation](docs/images/web-console-caller.webp)
+
 ## Architecture in one paragraph
 
 Four zones split by trust boundary. **Zone 1** (caller): a web page with the
@@ -57,11 +61,13 @@ rbe/
 │   ├── adapters.py      DATA   Protocols to MoHRE systems; synthetic implementations
 │   └── templates/       call page (Web SDK) + specialist review queue
 ├── agent/               Zone 2 source of truth, ElevenLabs Agents-CLI layout
+├── web/                 Zone 1 web console: React + Vite SPA (caller + specialist review)
 ├── data/                synthetic fixtures (one per use case) + effective-dated rules
 ├── tests/               28 domain tests (stdlib, no network) + api/ edge tests
 ├── load/                locust: tool endpoints at 2x annualised 80084 volume
-├── docs/adr/            architecture decisions D1-D9 / docs/ROADMAP.md phases
-└── .github/             CI (lint, types, tests, coverage, agent-config), CODEOWNERS, PR template
+├── deploy/              production deployment: nginx, systemd, deploy and smoke-test scripts
+├── docs/adr/            architecture decisions D1-D10 / docs/ROADMAP.md phases
+└── .github/             CI (lint, types, tests, coverage, agent-config, web build), CODEOWNERS, PR template
 ```
 
 The product case (problem, evidence, what the system refuses to do) is in
@@ -88,6 +94,32 @@ To go live end-to-end (build sprint): expose the app over HTTPS
 agent from [`agent/`](agent/README.md), make a test call from `/` as
 WRK-1001 (case LAB-1001, code 4821), then open `/review` with the reviewer
 token and decide the item once the transcript webhook arrives.
+
+## Web console
+
+The Zone 1 web console (screenshot above) is a React + Vite SPA in
+[`web/`](web/README.md), with a caller side (verify, live voice call,
+findings, draft confirmation) and a specialist review side (queue,
+evidence, audit trail, single signed decision). The Start Call flow is
+wired to the control plane's `GET /session/signed-url` and the ElevenLabs
+SDK; the browser never sees the API key (D10). The other screens run on
+labelled mock data for the demo; the server-rendered `/review` page stays
+the working reviewer tool.
+
+```bash
+cd web
+npm ci
+cp .env.example .env             # set VITE_API_BASE_URL, default http://localhost:8000
+npm run dev                      # http://localhost:5173
+npm run build                    # type-check + production build to web/dist/
+```
+
+## Deployment
+
+Production deployment (nginx serving `web/dist/` and proxying the API to
+uvicorn under systemd, HTTPS via Let's Encrypt) is fully described in
+[`deploy/`](deploy/README.md), including a smoke-test script that verifies
+a deployed instance without touching any real data.
 
 ## API
 

@@ -1,0 +1,27 @@
+# Control-plane service. Installed by deploy/deploy.sh to
+# /etc/systemd/system/rbe.service. Secrets live in /etc/rbe/rbe.env
+# (root:rbe 640), never in this unit and never in the repo.
+[Unit]
+Description=RBE control plane (uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rbe
+Group=rbe
+WorkingDirectory=/opt/rbe/src
+EnvironmentFile=/etc/rbe/rbe.env
+ExecStart=/opt/rbe/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+
+# Hardening: the service can write only its data directory
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/rbe
+
+[Install]
+WantedBy=multi-user.target
