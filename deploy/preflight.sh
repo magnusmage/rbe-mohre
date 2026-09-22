@@ -45,6 +45,9 @@ if command -v nginx >/dev/null; then
   fi
   if nginx -t >/dev/null 2>&1; then
     ok "current nginx config is valid (safe baseline to return to)"
+  elif [ "$(id -u)" -ne 0 ]; then
+    # Non-root nginx -t commonly fails on log-file permissions alone
+    warn "nginx -t failed, but run as non-root that is usually only log permissions: re-run this pre-flight with sudo for a real answer"
   else
     bad "current nginx config already fails nginx -t: fix before deploying anything"
   fi
