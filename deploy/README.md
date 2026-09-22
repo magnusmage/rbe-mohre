@@ -59,6 +59,11 @@ alone first to see where the VM stands.
 RBE_HOST=rbe.magnusmage.com bash preflight.sh
 ```
 
+Managing nginx yourself? Run it as `SKIP_NGINX=1 bash preflight.sh` so an
+existing config for the domain counts as expected rather than a clash.
+If it reports Node or Python missing, `bash install_prereqs.sh` (as root,
+Ubuntu) installs Node 20 and Python 3.12 and nothing else.
+
 ## Steps
 
 ```bash
