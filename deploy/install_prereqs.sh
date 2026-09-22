@@ -38,8 +38,11 @@ else
   else
     echo "   uv already present: $(uv --version)"
   fi
-  uv python install 3.12
-  echo "   Python 3.12 provisioned by uv (deploy.sh creates the venv with it)"
+  # System location, NOT root's home: the rbe service user must be able
+  # to traverse to the interpreter, and the unit's ProtectHome=true
+  # (kept on purpose) blocks /root and /home entirely.
+  UV_PYTHON_INSTALL_DIR=/opt/uv/python uv python install 3.12
+  echo "   Python 3.12 provisioned under /opt/uv/python (deploy.sh creates the venv with it)"
 fi
 
 echo "Done. Re-run: bash preflight.sh"

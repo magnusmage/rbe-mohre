@@ -55,17 +55,32 @@ git -C "$SRC" checkout --detach "$RBE_REF"
 git -C "$SRC" log --format='deployed commit: %h %s' -1
 
 say "python environment"
+# A venv whose interpreter resolves into /root or /home is unusable by the
+# service: user rbe cannot traverse there and the unit's ProtectHome=true
+# blocks it regardless. Detect and rebuild such a venv.
+if [ -x "$VENV/bin/python" ]; then
+  PYREAL=$(readlink -f "$VENV/bin/python")
+  case "$PYREAL" in
+    /root/*|/home/*)
+      echo "existing venv resolves to $PYREAL (invisible to the service); rebuilding"
+      rm -rf "$VENV" ;;
+  esac
+fi
 if [ ! -x "$VENV/bin/pip" ]; then
   if [ -n "$PY" ]; then
     "$PY" -m venv "$VENV"
   else
-    # uv-provisioned standalone CPython; --seed puts pip in the venv so
-    # the rest of this script is identical either way
-    uv venv --seed --python 3.12 "$VENV"
+    # uv-provisioned standalone CPython in a system path; --seed puts pip
+    # in the venv so the rest of this script is identical either way
+    UV_PYTHON_INSTALL_DIR=/opt/uv/python uv venv --seed --python 3.12 "$VENV"
   fi
 fi
 "$VENV/bin/pip" install --quiet --upgrade pip
 "$VENV/bin/pip" install --quiet -r "$SRC/requirements.txt"
+# Prove the interpreter is executable AS THE SERVICE USER before systemd
+# tries: catches ownership and traversal problems with a clear message.
+runuser -u rbe -- "$VENV/bin/python" -c "import sys; print('venv ok for rbe:', sys.version.split()[0])" \
+  || die "user rbe cannot execute $VENV/bin/python; check the interpreter path above"
 
 say "web console build (same-origin: the edge serves it)"
 ( cd "$SRC/web" \
@@ -79,10 +94,14 @@ if [ ! -f /etc/rbe/rbe.env ]; then
   die "created /etc/rbe/rbe.env from the template; fill in every value, then re-run"
 fi
 # APP_ENV=production makes settings.check() refuse to boot with blanks,
-# but fail here with a clear message instead of a crash loop.
-if grep -qE '^(AGENT_TOOL_TOKEN|REVIEWER_TOKEN|ELEVENLABS_API_KEY|ELEVENLABS_AGENT_ID|ELEVENLABS_WEBHOOK_SECRET)=$' /etc/rbe/rbe.env; then
-  die "/etc/rbe/rbe.env still has empty values; fill them in, then re-run"
-fi
+# but fail here with a clear message naming each offender instead of a
+# crash loop. Whitespace-only and CRLF-damaged values count as empty.
+MISSING=""
+for k in AGENT_TOOL_TOKEN REVIEWER_TOKEN ELEVENLABS_API_KEY ELEVENLABS_AGENT_ID ELEVENLABS_WEBHOOK_SECRET; do
+  v=$(grep -E "^$k=" /etc/rbe/rbe.env | tail -1 | cut -d= -f2- | tr -d '[:space:]\r')
+  [ -n "$v" ] || MISSING="$MISSING $k"
+done
+[ -z "$MISSING" ] || die "empty or missing in /etc/rbe/rbe.env:$MISSING"
 
 say "systemd service"
 install -m 644 "$SRC/deploy/systemd/rbe.service" /etc/systemd/system/rbe.service
