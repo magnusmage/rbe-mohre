@@ -23,4 +23,7 @@ TypeScript) and CI builds it on every PR. Wiring a mock screen to a real
 endpoint means replacing imports from `src/data/mock.ts` with typed fetch
 hooks, and each such change goes through the same PR review as a tool
 change. Deployment serves `web/dist/` as static files and proxies API
-paths to uvicorn (see `deploy/`).
+paths to uvicorn (see `deploy/`); the edge also serves the build itself
+when present, so a proxy that forwards everything still shows the
+console, and checkouts without a build fall back to the minimal call
+page.
