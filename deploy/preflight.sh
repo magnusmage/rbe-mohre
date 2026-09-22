@@ -56,10 +56,15 @@ if command -v nginx >/dev/null; then
   else
     bad "no sites-available layout: this distro uses conf.d; adjust deploy.sh paths before running"
   fi
-  # 4. server_name collision with a foreign file
+  # 4. server_name collision. With SKIP_NGINX=1 the operator manages the
+  # site config themselves, so an existing claim is expected, not fatal.
   CLAIMED=$(grep -RlsE "server_name[^;]*(^|[ ,])$RBE_HOST(\$|[ ;,])" /etc/nginx/ 2>/dev/null | grep -v "sites-available/$RBE_HOST.conf" | grep -v "sites-enabled/$RBE_HOST.conf" || true)
-  if [ -n "$CLAIMED" ]; then
-    bad "$RBE_HOST already claimed by another nginx file: $CLAIMED"
+  if [ -n "$CLAIMED" ] && [ "${SKIP_NGINX:-0}" = "1" ]; then
+    ok "$RBE_HOST served by operator-managed config (SKIP_NGINX=1): $(echo "$CLAIMED" | tr '\n' ' ')"
+  elif [ -n "$CLAIMED" ]; then
+    bad "$RBE_HOST already claimed by another nginx file: $CLAIMED (managing nginx yourself? re-run with SKIP_NGINX=1)"
+  elif [ "${SKIP_NGINX:-0}" = "1" ]; then
+    warn "SKIP_NGINX=1 but no nginx file serves $RBE_HOST yet: add your config before the smoke test"
   else
     ok "$RBE_HOST not claimed by any other nginx site"
   fi
