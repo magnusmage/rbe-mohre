@@ -13,7 +13,8 @@ from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import service as svc
@@ -23,6 +24,7 @@ from .store import Store
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 TEMPLATES = Path(__file__).resolve().parent / "templates"
+WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 app = FastAPI(title="RBE control plane", version="0.1.0",
               description="Resolve Before It Escalates: MoHRE control plane (Zone 3). "
@@ -220,10 +222,40 @@ def audit(case_ref: str):
 
 
 # ------------------------------------------------------------------- pages
+# The built web console (web/dist, D10) is served by the edge when present,
+# so a reverse proxy that forwards everything still shows the console. The
+# minimal call page stays as the fallback for checkouts without a build.
+
+if (WEB_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
+
+
+def _console() -> str | None:
+    index = WEB_DIST / "index.html"
+    return index.read_text() if index.is_file() else None
+
 
 @app.get("/", response_class=HTMLResponse)
-def call_page():
-    return (TEMPLATES / "call.html").read_text()
+def home_page():
+    return _console() or (TEMPLATES / "call.html").read_text()
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+def favicon():
+    icon = WEB_DIST / "favicon.svg"
+    if icon.is_file():
+        return FileResponse(icon)
+    raise HTTPException(404)
+
+
+@app.get("/caller/{_rest:path}", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/specialist/{_rest:path}", response_class=HTMLResponse, include_in_schema=False)
+def console_routes(_rest: str = ""):
+    """Client-side routes of the console; 404 when no build is present."""
+    page = _console()
+    if page is None:
+        raise HTTPException(404)
+    return page
 
 
 @app.get("/review", response_class=HTMLResponse)

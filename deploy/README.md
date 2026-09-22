@@ -134,11 +134,12 @@ userdel rbe
 If you keep your own nginx config for the domain, run every deploy with
 `SKIP_NGINX=1 bash deploy.sh`: the script then never writes, links or
 reloads anything under `/etc/nginx`, and refuses (without it) to overwrite
-a site file it did not write. Your config must do what the reference file
-does: serve `/opt/rbe/src/web/dist` with the SPA fallback and proxy
-`/health /docs /openapi.json /session /tools /webhooks /review /audit`
-to `127.0.0.1:8000`. After each deploy the new SPA build appears at the
-same path, so a plain `nginx -t && systemctl reload nginx` is all yours.
+a site file it did not write. The simplest working config proxies
+everything for the domain to `127.0.0.1:8000`: the edge serves the built
+console itself, so no static or fallback rules are required. The
+reference file's static serving of `/opt/rbe/src/web/dist` remains the
+better-performing option (immutable asset caching). After each deploy the
+new build is picked up either way.
 
 ## Why other domains stay safe
 
