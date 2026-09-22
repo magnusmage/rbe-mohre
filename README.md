@@ -59,7 +59,7 @@ rbe/
 │   ├── quality.py       DOMAIN post-call grounding check
 │   ├── store.py         DATA   sqlite3 now, Postgres later; append-only audit triggers
 │   ├── adapters.py      DATA   Protocols to MoHRE systems; synthetic implementations
-│   └── templates/       call page (Web SDK) + specialist review queue
+│   └── templates/       specialist review queue page
 ├── agent/               Zone 2 source of truth, ElevenLabs Agents-CLI layout
 ├── web/                 Zone 1 web console: React + Vite SPA (caller + specialist review)
 ├── data/                synthetic fixtures (one per use case) + effective-dated rules
@@ -85,7 +85,8 @@ python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 
 python -m unittest -v            # 28 tests; no network, no ElevenLabs account
-make run                         # then open /health and /docs
+make web                         # build the console once (Node 20+)
+make run                         # serves the console at /, plus /health and /docs
 cp .env.example .env             # tokens: python -c "import secrets;print(secrets.token_urlsafe(32))"
 ```
 
@@ -109,10 +110,12 @@ the working reviewer tool.
 ```bash
 cd web
 npm ci
-cp .env.example .env             # set VITE_API_BASE_URL, default http://localhost:8000
-npm run dev                      # http://localhost:5173
-npm run build                    # type-check + production build to web/dist/
+npm run dev                      # http://localhost:5173, proxies API to :8000
+npm run build                    # type-check + build; the control plane then serves it at /
 ```
+
+No configuration needed: the console talks to the same origin that serves
+it, and the dev server proxies API paths to the local control plane.
 
 ## Deployment
 

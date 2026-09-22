@@ -57,10 +57,10 @@ say "python environment"
 "$VENV/bin/pip" install --quiet --upgrade pip
 "$VENV/bin/pip" install --quiet -r "$SRC/requirements.txt"
 
-say "web console build"
+say "web console build (same-origin: the edge serves it)"
 ( cd "$SRC/web" \
   && npm ci --no-audit --no-fund \
-  && VITE_API_BASE_URL="https://$RBE_HOST" npm run build )
+  && npm run build )
 [ -f "$SRC/web/dist/index.html" ] || die "web build produced no dist/index.html"
 
 say "secrets file"

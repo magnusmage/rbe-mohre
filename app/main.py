@@ -222,12 +222,20 @@ def audit(case_ref: str):
 
 
 # ------------------------------------------------------------------- pages
-# The built web console (web/dist, D10) is served by the edge when present,
-# so a reverse proxy that forwards everything still shows the console. The
-# minimal call page stays as the fallback for checkouts without a build.
+# The web console (web/dist, D10) is the only caller UI and is served by
+# the edge, so a reverse proxy that forwards everything still shows it.
+# A checkout without a build gets build instructions, never an old page.
 
 if (WEB_DIST / "assets").is_dir():
     app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
+
+_BUILD_MISSING = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>RBE</title></head><body style="font-family:system-ui;max-width:560px;margin:48px auto">
+<h1>Console build missing</h1>
+<p>The web console has not been built in this checkout. Run:</p>
+<pre>cd web &amp;&amp; npm ci &amp;&amp; npm run build</pre>
+<p>then reload. API health: <a href="/health">/health</a>, docs: <a href="/docs">/docs</a>.</p>
+</body></html>"""
 
 
 def _console() -> str | None:
@@ -237,7 +245,7 @@ def _console() -> str | None:
 
 @app.get("/", response_class=HTMLResponse)
 def home_page():
-    return _console() or (TEMPLATES / "call.html").read_text()
+    return _console() or _BUILD_MISSING
 
 
 @app.get("/favicon.svg", include_in_schema=False)
