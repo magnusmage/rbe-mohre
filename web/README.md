@@ -29,9 +29,12 @@ The app has two sides:
 
 ```bash
 npm install
-cp .env.example .env   # then edit the values
 npm run dev
 ```
+
+No configuration is needed: the dev server proxies API paths to the local
+control plane on http://localhost:8000 (override with `RBE_DEV_API`), and
+a production build is served by the control plane itself on one origin.
 
 Then open http://localhost:5173.
 
@@ -39,9 +42,9 @@ Then open http://localhost:5173.
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | Yes | Base URL of the RBE backend API, without a trailing slash (e.g. `https://api.example.com`). |
+| `VITE_API_BASE_URL` | No | Optional base URL of a different backend, without a trailing slash. Empty (the default) means same-origin. |
 
-Variables are read at build time by Vite. `.env` is git-ignored; only `.env.example` is committed. The app fails fast at startup if a required variable is missing.
+Variables are read at build time by Vite. `.env` is git-ignored; only `.env.example` is committed.
 
 > Voice calls need microphone access, which browsers only allow on `https://` or `localhost` / `127.0.0.1`.
 
@@ -77,7 +80,7 @@ Any unknown path redirects to `/`.
 Pressing **Start call** on `/caller/ready` dispatches the `startCall` thunk, which runs three steps in order:
 
 1. **Microphone**: checks the permission and asks for it only if it hasn't been decided yet (`src/services/media/microphone.ts`).
-2. **Session**: dispatches `fetchSignedUrl`, which calls `GET {VITE_API_BASE_URL}/session/signed-url`. The response must be `{ "signed_url": "wss://..." }` (`signedUrl` is also accepted).
+2. **Session**: dispatches `fetchSignedUrl`, which calls `GET /session/signed-url` on the API base (same-origin by default). The response must be `{ "signed_url": "wss://..." }` (`signedUrl` is also accepted).
 3. **Voice agent**: opens an ElevenLabs conversation with that signed URL (`src/services/voice/voiceAgent.ts`), with a 20 s timeout.
 
 The app moves to `/caller/call` only after the ElevenLabs session is connected.

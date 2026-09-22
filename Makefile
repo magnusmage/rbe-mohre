@@ -1,5 +1,6 @@
-.PHONY: run test unit lint types check load agent-push
+.PHONY: run web test unit lint types check load agent-push
 run:        ; uvicorn app.main:app --reload --port 8000
+web:        ; cd web && npm ci && npm run build
 unit:       ; python -m unittest -v
 test:       ; python -m pytest -q
 lint:       ; ruff check app tests

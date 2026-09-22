@@ -1,7 +1,7 @@
-"""The home page serves the built web console when web/dist exists and the
-minimal call page otherwise, so a reverse proxy that forwards everything to
-the edge still shows the console. Both branches are covered across
-environments: CI has no build (fallback), a deployed checkout does.
+"""The web console is the only caller UI: the home page serves the built
+console when web/dist exists and build instructions otherwise (never an
+old page). Both branches are covered across environments: CI has no build,
+a deployed checkout does.
 """
 from fastapi.testclient import TestClient
 
@@ -11,13 +11,13 @@ client = TestClient(app)
 CONSOLE_BUILT = (WEB_DIST / "index.html").is_file()
 
 
-def test_home_page_serves_console_or_fallback():
+def test_home_page_serves_console_or_instructions():
     r = client.get("/")
     assert r.status_code == 200
     if CONSOLE_BUILT:
         assert "RBE Console" in r.text
     else:
-        assert "Worker rights check" in r.text
+        assert "Console build missing" in r.text
 
 
 def test_console_client_routes():
