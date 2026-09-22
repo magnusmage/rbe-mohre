@@ -31,7 +31,9 @@ PY=""
 for c in python3.12 python3.11; do
   command -v "$c" >/dev/null && PY="$c" && break
 done
-[ -n "$PY" ] || die "python3.11+ is required (e.g. apt install python3.12-venv, or use uv)"
+if [ -z "$PY" ] && ! command -v uv >/dev/null; then
+  die "python3.11+ or uv is required: run deploy/install_prereqs.sh first"
+fi
 
 say "pre-flight (read-only checks; SKIP_PREFLIGHT=1 to skip)"
 if [ "${SKIP_PREFLIGHT:-0}" != "1" ]; then
@@ -53,7 +55,15 @@ git -C "$SRC" checkout --detach "$RBE_REF"
 git -C "$SRC" log --format='deployed commit: %h %s' -1
 
 say "python environment"
-[ -x "$VENV/bin/pip" ] || "$PY" -m venv "$VENV"
+if [ ! -x "$VENV/bin/pip" ]; then
+  if [ -n "$PY" ]; then
+    "$PY" -m venv "$VENV"
+  else
+    # uv-provisioned standalone CPython; --seed puts pip in the venv so
+    # the rest of this script is identical either way
+    uv venv --seed --python 3.12 "$VENV"
+  fi
+fi
 "$VENV/bin/pip" install --quiet --upgrade pip
 "$VENV/bin/pip" install --quiet -r "$SRC/requirements.txt"
 

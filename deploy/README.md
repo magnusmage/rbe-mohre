@@ -29,7 +29,10 @@ browser and API share one origin and the control plane needs no CORS.
 
 - nginx with `sites-available` / `sites-enabled` layout, already serving
   the other domain(s)
-- git, Node.js 20+ with npm, python3.11+ (`python3.12` preferred)
+- git, Node.js 20+ with npm, and Python 3.11+ or `uv` (which provisions a
+  standalone Python 3.12; `install_prereqs.sh` sets this up without apt,
+  because apt regex-matches "python3.12" to unrelated packages on
+  releases that lack it)
 - port 8000 free on localhost (`ss -ltn | grep 8000` must be empty; if it
   is taken, change the port consistently in `systemd/rbe.service` and the
   nginx conf before deploying)
