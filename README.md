@@ -35,6 +35,9 @@ adapter Protocols (synthetic in the build). Every case ends at the **human
 gate**: a specialist with a separate token decides, and only after the
 HMAC-verified call transcript is stored.
 
+![RBE zone architecture: the architecture of whole system, designed to
+solve the problem](docs/images/rbe-arch.png)
+
 ### Six invariants (every PR is reviewed against them)
 
 1. The LLM explains; it never calculates or decides.
