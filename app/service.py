@@ -81,9 +81,10 @@ def _run(store: Store, conv: str, action: str, case_ref: str, fn) -> dict:
         return _refuse(store, conv, action, "dependency_unavailable",
                        "I can't reach the records right now, so I won't give an answer "
                        "I can't check. I can pass you to a person or arrange a callback.", ref)
-    res = fn(worker)                                        # pure rule from rules.py
+    res = fn(worker)
+    result = res.to_dict()                                     # pure rule from rules.py
     store.audit("agent", action, res.status, conv, ref,
-                {"tier": res.tier.value, "rules": [f.rule_id for f in res.findings]})
+                {"tier": res.tier.value, "rules": [f.rule_id for f in res.findings], "check_result": result})
     return {"ok": True, **res.to_dict()}
 
 
@@ -168,6 +169,52 @@ def record_allegation(store: Store, conv: str, case_ref: str, period: str,
 
 # ------------------------------------------------------- tools 6-8: casework
 
+EVIDENCE_ACTIONS = {
+    "check_wage",
+    "check_payment_timing",
+    "check_settlement",
+    "record_allegation",
+}
+
+def _verified_findings(store: Store, case_ref: str, conv: str) -> list[dict]:
+    """Return only verified, structured results from official record checks."""
+    verified = []
+
+    for row in store.audit_for(case_ref):
+        if row["conversation_id"] != conv:
+            continue
+
+        # Ignore workflow events such as send_to_review and transfer_to_human.
+        if row["action"] not in EVIDENCE_ACTIONS:
+            continue
+
+        detail = json.loads(row["detail"]) if row["detail"] else {}
+        result = detail.get("check_result")
+
+        # Ignore generic audit detail such as review_ref, tier, and reason.
+        if not isinstance(result, dict):
+            continue
+
+        findings = [
+            finding
+            for finding in result.get("findings", [])
+            if isinstance(finding, dict) and finding.get("verified") is True
+        ]
+
+        # Do not add allegation-only or empty evidence entries.
+        if not findings:
+            continue
+
+        verified.append({
+            "action": row["action"],
+            "check": result.get("check", row["action"]),
+            "status": result.get("status", row["result"]),
+            "findings": findings,
+            "explanation": result.get("say", ""),
+        })
+
+    return verified
+
 def draft_complaint(store: Store, conv: str, case_ref: str, summary: str,
                     worker_confirmed: bool) -> dict:
     ref = normalise_ref(case_ref)
@@ -181,8 +228,7 @@ def draft_complaint(store: Store, conv: str, case_ref: str, summary: str,
                        "Shall I prepare it?", ref)
     body = {"summary": summary[:1000],
             "allegations": store.allegations(ref),
-            "verified_findings": [json.loads(r["detail"]) for r in store.audit_for(ref)
-                                  if r["conversation_id"] == conv and r["detail"]],
+            "verified_findings": _verified_findings(store, ref, conv),
             "filed": False}                     # never filed in the build
     draft_ref = store.create_draft(ref, body, True)
     store.audit("agent", "draft_complaint", "drafted", conv, ref, {"draft_ref": draft_ref})
@@ -202,6 +248,12 @@ def send_to_review(store: Store, conv: str, case_ref: str, tier: str, summary: s
     except ValueError:
         return _refuse(store, conv, "send_to_review", "invalid_tier",
                        "I couldn't queue that. Let me pass you to a person.", ref)
+
+    existing = store.active_review(ref, conv)
+    if existing:
+        return _refuse(store, conv, "send_to_review", "already_queued",
+                       "A specialist is already reviewing this case. Please wait for their response.", ref)
+
     # floor = highest tier any check produced on this call (invariant 5)
     seen = []
     for r in store.audit_for(ref):
@@ -216,7 +268,6 @@ def send_to_review(store: Store, conv: str, case_ref: str, tier: str, summary: s
                 {"review_ref": review_ref, "tier": final.value})
     return {"ok": True, "review_ref": review_ref, "tier": final.value,
             "say": "A specialist will review this. Every case is looked at by a person."}
-
 
 def transfer_to_human(store: Store, conv: str, reason: str,
                       callback: bool = False, consent: bool = False) -> dict:
@@ -242,13 +293,71 @@ def decide(store: Store, review_ref: str, decision: str, reviewer: str) -> dict:
     it = store.review(review_ref)
     if it is None:
         return {"ok": False, "error": "not_found"}
+
+    def audit(result: str) -> None:
+        store.audit(
+            "reviewer",
+            "decision",
+            result,
+            it["conversation_id"],
+            it["case_ref"],
+            {"review_ref": review_ref},
+        )
+
     if it["decision"]:
+        audit("already_decided")
         return {"ok": False, "error": "already_decided"}
+
     if decision not in DECISIONS:
+        audit("invalid_decision")
         return {"ok": False, "error": "invalid_decision"}
+
     if not store.has_transcript(it["conversation_id"]):
-        return {"ok": False, "error": "transcript_pending"}      # decision lock
+        audit("transcript_pending")
+        return {"ok": False, "error": "transcript_pending"}
+
     store.decide(review_ref, decision, reviewer)
-    store.audit("reviewer", "decision", decision, it["conversation_id"], it["case_ref"],
-                {"review_ref": review_ref})
+    audit(decision)
+
     return {"ok": True, "decision": decision}
+
+def review_detail(store: Store, review_ref: str) -> dict:
+    review = store.review(review_ref)
+
+    if review is None:
+        return {
+            "ok": False,
+            "error": "not_found",
+        }
+
+    case_ref = review["case_ref"]
+    conversation_id = review["conversation_id"]
+
+    package = (
+        json.loads(review["package_json"])
+        if review.get("package_json")
+        else {}
+    )
+
+    transcript = store.transcript(conversation_id)
+
+    return {
+        "ok": True,
+        "review": {
+            "review_ref": review["review_ref"],
+            "case_ref": case_ref,
+            "conversation_id": conversation_id,
+            "tier": review["tier"],
+            "summary": review["summary"],
+            "decision": review["decision"],
+            "decided_by": review["decided_by"],
+            "decided_at": review["decided_at"],
+            "transcript_ready": transcript is not None,
+        },
+        "package": package,
+        "allegations": store.allegations(case_ref),
+        "draft": store.latest_draft(case_ref),
+        "transcript": transcript,
+        "audit": store.audit_for(case_ref),
+    }
+

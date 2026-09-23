@@ -115,6 +115,28 @@ class Store:
                 (ref, case_ref, json.dumps(body), 1 if confirmed else 0, time.time()))
         return ref
 
+    def latest_draft(self, case_ref: str) -> dict | None:
+        row = self.db.execute(
+            """
+            SELECT *
+            FROM draft
+            WHERE case_ref=?
+            ORDER BY at DESC
+            LIMIT 1
+            """,
+            (case_ref,),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        result = dict(row)
+
+        if result.get("body_json"):
+            result["body"] = json.loads(result.pop("body_json"))
+
+        return result
+
     # ---------------------------------------------------------------- review
     def create_review(self, case_ref: str, conversation_id: str, tier: str,
                       summary: str, package: dict) -> str:
@@ -129,6 +151,22 @@ class Store:
         r = self.db.execute("SELECT * FROM review_item WHERE review_ref=?",
                             (review_ref,)).fetchone()
         return dict(r) if r else None
+    
+    def active_review(self, case_ref: str, conversation_id: str):
+        row = self.db.execute(
+            """
+            SELECT *
+            FROM review_item
+            WHERE case_ref = ?
+            AND conversation_id = ?
+            AND decision IS NULL
+            ORDER BY at
+            LIMIT 1
+            """,
+            (case_ref, conversation_id),
+        ).fetchone()
+
+        return dict(row) if row else None
 
     def queue(self) -> list[dict]:
         order = ("CASE tier WHEN 'tier_2_mandatory_human' THEN 0 "
@@ -149,6 +187,17 @@ class Store:
     def has_transcript(self, conversation_id: str) -> bool:
         return self.db.execute("SELECT 1 FROM transcript WHERE conversation_id=?",
                                (conversation_id,)).fetchone() is not None
+    
+    def transcript(self, conversation_id: str) -> dict | None:
+        row = self.db.execute(
+            "SELECT body_json FROM transcript WHERE conversation_id=?",
+            (conversation_id,),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        return json.loads(row["body_json"])
 
     # ----------------------------------------------------------------- audit
     def audit(self, actor: str, action: str, result: str,

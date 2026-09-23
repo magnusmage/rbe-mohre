@@ -12,7 +12,8 @@ from collections import defaultdict, deque
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -39,10 +40,19 @@ store = Store(settings.database_path,
 
 # ------------------------------------------------------------------- auth
 
+bearer_scheme = HTTPBearer()
+
 def _bearer(expected: str):
-    def dep(authorization: str = Header(default="")):
-        if not expected or not hmac.compare_digest(authorization, f"Bearer {expected}"):
+    def dep(
+        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    ):
+        if (
+            not expected
+            or credentials.scheme.lower() != "bearer"
+            or not hmac.compare_digest(credentials.credentials, expected)
+        ):
             raise HTTPException(401, "unauthorised")
+
     return dep
 
 
@@ -204,6 +214,19 @@ def queue():
         it["transcript_ready"] = store.has_transcript(it["conversation_id"])
         it.pop("package_json", None)
     return {"items": items}
+
+@app.get(
+    "/review/{review_ref}",
+    dependencies=[reviewer_auth],
+)
+def review_detail(review_ref: str):
+    out = svc.review_detail(store, review_ref)
+
+    if not out["ok"]:
+        code = {"not_found": 404}.get(out["error"], 422)
+        raise HTTPException(code, out["error"])
+
+    return out
 
 
 @app.post("/review/{review_ref}/decision", dependencies=[reviewer_auth])
