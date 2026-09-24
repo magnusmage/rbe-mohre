@@ -5,6 +5,9 @@ import { TranscriptPanel } from '@/components/transcript/Transcript';
 import { Badge, Button, LabeledValue, Orb, SectionLabel } from '@/components/ui';
 import { SESSION, TRANSCRIPT } from '@/data/mock';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { formatDuration } from '@/lib/time';
+import { useAppSelector } from '@/store/hooks';
+import { selectCallDurationSeconds } from '../state/callSessionSlice';
 import { BackButton } from '../components/BackButton';
 import { TwoColumnLayout } from '../components/TwoColumnLayout';
 
@@ -71,10 +74,13 @@ function NextSteps() {
 
 export function CallEndedScreen() {
   const navigate = useNavigate();
+  const durationSeconds = useAppSelector(selectCallDurationSeconds);
+  // Falls back to the sample duration when this screen is opened without a finished call.
+  const duration = durationSeconds === null ? SESSION.callDuration : formatDuration(durationSeconds);
 
   return (
     <>
-      <BackButton to={ROUTES.callerCall} />
+      <BackButton to={ROUTES.callerReady} />
       <TwoColumnLayout
         main={
           <>
@@ -83,7 +89,7 @@ export function CallEndedScreen() {
                 <CheckIcon size={56} color="#fff" strokeWidth={2.6} />
               </Orb>
               <div className="mb-1.5 text-xs font-bold uppercase tracking-[.14em] text-success">
-                Call ended · <span className="mono">{SESSION.callDuration}</span> · {SESSION.toolCalls} tool calls
+                Call ended · <span className="mono">{duration}</span> · {SESSION.toolCalls} tool calls
               </div>
               <h1 className="mb-1.5 text-[26px] font-semibold tracking-[-.01em]">Thank you — your case is with a specialist</h1>
               <p className="mx-auto mb-6 max-w-[52ch] text-sm leading-[1.55] text-muted">
@@ -106,7 +112,7 @@ export function CallEndedScreen() {
             <div className="rounded-xl border border-line bg-white px-5 py-4">
               <SectionLabel className="mb-3">Call summary</SectionLabel>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <LabeledValue variant="plain" label="Duration" value={SESSION.callDuration} mono />
+                <LabeledValue variant="plain" label="Duration" value={duration} mono />
                 <LabeledValue variant="plain" label="Language" value="English" />
                 <LabeledValue variant="plain" label="Verified facts" value="2" mono />
                 <LabeledValue variant="plain" label="Allegations" value="1" mono />

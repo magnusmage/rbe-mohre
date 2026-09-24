@@ -21,6 +21,7 @@ The app has two sides:
 - [React Router 7](https://reactrouter.com) (data router)
 - [Redux Toolkit](https://redux-toolkit.js.org) + React Redux (thunks via `createAsyncThunk`)
 - [ElevenLabs JS client](https://github.com/elevenlabs/packages) (`@elevenlabs/client`, lazy-loaded) for the voice agent
+- [Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com) (jsdom) for the test suite
 - IBM Plex Sans / IBM Plex Mono (Google Fonts)
 
 ## Getting started
@@ -54,6 +55,9 @@ Variables are read at build time by Vite. `.env` is git-ignored; only `.env.exam
 | `npm run build` | Type-check (`tsc -b`) and build to `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | Type-check only |
+| `npm test` | Run the test suite once |
+| `npm run test:watch` | Re-run tests on change |
+| `npm run test:coverage` | Run with coverage (fails under 80%) |
 
 ## Routes
 
@@ -116,6 +120,41 @@ The app moves to `/caller/call` only after the ElevenLabs session is connected.
 
 **Not wired (visual only):** *Track my case*, *Download transcript (PDF)*, *Assign to...*.
 
+## Testing
+
+```bash
+npm test              # whole suite
+npm run test:watch    # while developing
+npm run test:coverage # with the 80% gate CI enforces
+```
+
+Tests sit next to the code as `*.test.ts(x)` and run in jsdom. CI runs `npm run test:coverage`
+before the build, so a drop below 80% statements/lines/functions/branches fails the job.
+
+**Shared helpers** live in `src/test/`:
+
+| Helper | Use |
+| --- | --- |
+| `renderWithProviders(ui, { store, route, path, extraRoutes })` | Renders inside the real store, language provider and a data router (needed by `useBlocker`). Returns `store`, `user` and `location()`. |
+| `renderRoutes(routes, …)` | Same, for whole-flow tests across several screens. |
+| `makeStore(partialCallSession)` / `connectedCallSession()` | A fresh store, optionally seeded with a live call. |
+
+**Mocks** are in `src/test/mocks/`, each marked with a `// MOCK:` comment saying what it
+stands in for and when it should be replaced:
+
+| Mock | Stands in for | Replace when |
+| --- | --- | --- |
+| `elevenLabsSdk.ts` | `@elevenlabs/client`. Drives every SDK event (`onConnect`, `onDisconnect`, `onError`, `onModeChange`, `onStatusChange`) and records `endSession` / `setMicMuted`. | Never — the SDK stays mocked here. Real sessions need a manual pass or a future E2E suite. |
+| `browserApis.ts` → `stubFetch` | `GET /session/signed-url` and the HTTP client's transport. | If a contract test against a staging backend is added. |
+| `browserApis.ts` → `mockMicrophone`, `mockClipboard` | `getUserMedia`, the Permissions API, the clipboard. | Never — jsdom cannot prompt for real permissions. |
+| `src/data/mock.ts` (app fixture, not a test helper) | Screen content that has no API yet: transcript, findings, review queue, audit trail, case packs. | When those endpoints exist. Tests assert structure and wiring, never deep fixture content. |
+
+**Not covered here** (needs a real browser, so verify manually before release):
+
+- The native refresh/close dialog actually appearing — tests only assert `beforeunload` is cancelled.
+- A true page reload clearing call state — tests assert the redirect that follows instead.
+- A real microphone permission prompt, and a live ElevenLabs conversation.
+
 ## Project structure
 
 ```
@@ -149,7 +188,7 @@ src/
 │       ├── tiers.ts          # Tier / audit-result -> badge tone mappings
 │       └── components/       # ReviewQueue, CaseHeader, TranscriptStatusBanner, EvidenceCards,
 │                             # ComplaintDraftCard, AuditLog, DecisionPanel, CaseSidePanel
-├── hooks/                    # useDismiss (outside click / Esc), useCopyToClipboard
+├── hooks/                    # useDismiss (outside click / Esc), useCopyToClipboard, useDelayedFlag
 ├── services/
 │   ├── http/apiClient.ts     # fetch wrapper: base URL, timeout, typed ApiError
 │   ├── session/sessionApi.ts # GET /session/signed-url
@@ -157,6 +196,7 @@ src/
 │   └── voice/voiceAgent.ts   # ElevenLabs session lifecycle (connect, mute, end)
 ├── store/                    # configureStore, RootState/AppDispatch, typed hooks
 ├── lib/cn.ts                 # className join helper
+├── test/                     # Test helpers and clearly marked mocks (not shipped)
 ├── types/index.ts            # Shared domain types
 ├── index.css                 # Tailwind import, theme tokens, orb/wave animations
 └── main.tsx
@@ -191,7 +231,8 @@ Contributions are welcome.
 1. Fork the repository and create a branch: `git checkout -b feat/short-description`.
 2. Install dependencies and run the app with `npm install` and `npm run dev`.
 3. Follow the [conventions](#conventions): keep features self-contained, reuse the `ui` primitives, and use theme tokens instead of hard-coded colours.
-4. Make sure `npm run build` passes (it runs the TypeScript checks too).
+4. Add or update tests next to the code you touch, and make sure `npm test` and
+   `npm run build` pass (the build runs the TypeScript checks too).
 5. Open a pull request that describes the change. Add screenshots for UI changes.
 
 Please use [Conventional Commits](https://www.conventionalcommits.org) for commit messages (for example `feat: add case assignment modal`, `fix: queue filter reset`).
