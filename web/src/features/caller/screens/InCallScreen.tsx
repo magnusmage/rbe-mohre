@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useBlocker, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/app/routes';
 import { TranscriptPanel } from '@/components/transcript/Transcript';
+import { Alert, ConfirmDialog } from '@/components/ui';
 import { TRANSCRIPT } from '@/data/mock';
+import { formatDuration } from '@/lib/time';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { BackButton } from '../components/BackButton';
 import { CallHero } from '../components/CallHero';
@@ -11,10 +13,16 @@ import { FindingsCard } from '../components/FindingsCard';
 import { RightsCard } from '../components/RightsCard';
 import { SessionStrip } from '../components/SessionStrip';
 import { TwoColumnLayout } from '../components/TwoColumnLayout';
+import { useCallTimer } from '../hooks/useCallTimer';
 import {
+  agentErrorDismissed,
   endCall,
+  selectAgentError,
   selectAgentMode,
+  selectCallStartedAt,
   selectCallStatus,
+  selectIsCallActive,
+  selectIsEndingCall,
   selectMuted,
   setMicrophoneMuted,
 } from '../state/callSessionSlice';
@@ -23,31 +31,72 @@ export function InCallScreen() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const status = useAppSelector(selectCallStatus);
+  const isActive = useAppSelector(selectIsCallActive);
+  const isEnding = useAppSelector(selectIsEndingCall);
   const agentMode = useAppSelector(selectAgentMode);
+  const agentError = useAppSelector(selectAgentError);
   const muted = useAppSelector(selectMuted);
-  const [ending, setEnding] = useState(false);
+  const startedAt = useAppSelector(selectCallStartedAt);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>('pending');
 
   const isLive = status === 'connected';
+  // Ticks only while the call is live; the interval is cleared on end and on unmount.
+  const elapsedSeconds = useCallTimer(startedAt, isLive);
 
-  // React to the session closing from the other side (agent hang-up or dropped connection).
+  /** True once this screen has backed a real session, so the end/redirect effects may run. */
+  const hadSession = useRef(isActive);
+  useEffect(() => {
+    if (isActive) hadSession.current = true;
+  }, [isActive]);
+  /** Set when the user confirmed leaving, so the end-of-call redirect stands aside. */
+  const leaving = useRef(false);
+
+  // Confirm before any navigation away from a live call (Back link, top bar, browser Back).
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => isLive && currentLocation.pathname !== nextLocation.pathname,
+  );
+  const isBlocked = blocker.state === 'blocked';
+  // Always act on the current blocker: `confirmLeave` awaits, by which time the
+  // captured one may be stale, and proceeding twice would navigate twice.
+  const blockerRef = useRef(blocker);
+  blockerRef.current = blocker;
+  const proceedIfBlocked = () => {
+    if (blockerRef.current.state === 'blocked') blockerRef.current.proceed?.();
+  };
+
+  // The call may end (agent hang-up, drop) while the confirmation is open.
+  useEffect(() => {
+    if (blocker.state === 'blocked' && !isLive && !isEnding) proceedIfBlocked();
+  });
+
+  // Follow the session closing from the other side.
   const previousStatus = useRef(status);
   useEffect(() => {
-    const wasLive = previousStatus.current === 'connected';
+    const wasActive = previousStatus.current === 'connected' || previousStatus.current === 'ending';
     previousStatus.current = status;
-    if (!wasLive) return;
-    if (status === 'ended') navigate(ROUTES.callerEnded);
-    else if (status === 'failed') navigate(ROUTES.callerReady);
+    if (!wasActive || leaving.current) return;
+    if (status === 'ended') navigate(ROUTES.callerEnded, { replace: true });
+    else if (status === 'failed') navigate(ROUTES.callerReady, { replace: true });
   }, [status, navigate]);
 
-  const handleEndCall = async () => {
-    if (!isLive) {
-      navigate(ROUTES.callerEnded);
-      return;
-    }
-    setEnding(true);
-    // The status change to 'ended' triggers navigation via the effect above.
+  // No session behind this screen (direct visit or page refresh) — start a new call instead.
+  if (!isActive && !hadSession.current) {
+    return <Navigate to={ROUTES.callerReady} replace />;
+  }
+
+  const handleEndCall = () => {
+    if (isLive) void dispatch(endCall());
+  };
+
+  const confirmLeave = async () => {
+    leaving.current = true;
     await dispatch(endCall());
+    proceedIfBlocked();
+  };
+
+  const cancelLeave = () => {
+    leaving.current = false;
+    if (blockerRef.current.state === 'blocked') blockerRef.current.reset?.();
   };
 
   return (
@@ -56,10 +105,16 @@ export function InCallScreen() {
       <TwoColumnLayout
         main={
           <>
+            {agentError && (
+              <Alert tone="warning" title="Assistant reported a problem" onDismiss={() => dispatch(agentErrorDismissed())}>
+                {agentError}
+              </Alert>
+            )}
             <CallHero
               muted={muted}
               agentMode={isLive ? agentMode : null}
-              busy={ending}
+              elapsedLabel={formatDuration(elapsedSeconds)}
+              busy={isEnding}
               onToggleMute={() => dispatch(setMicrophoneMuted(!muted))}
               // Transferring hands the caller to a human specialist, which ends the assistant call.
               onTransfer={handleEndCall}
@@ -86,6 +141,18 @@ export function InCallScreen() {
             <RightsCard />
           </>
         }
+      />
+
+      <ConfirmDialog
+        open={isBlocked}
+        title="Leave this call?"
+        message="Are you sure you want to leave? The call will end."
+        confirmLabel="Yes, end the call"
+        cancelLabel="Cancel"
+        destructive
+        busy={isEnding}
+        onConfirm={() => void confirmLeave()}
+        onCancel={cancelLeave}
       />
     </>
   );

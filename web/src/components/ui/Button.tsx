@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, Ref } from 'react';
 import { cn } from '@/lib/cn';
 
 type Variant = 'primary' | 'dark' | 'secondary' | 'muted' | 'danger' | 'glass';
@@ -25,6 +25,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: Size;
   /** Disables the button and marks it busy, without the dimmed disabled look. */
   loading?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function Button({
