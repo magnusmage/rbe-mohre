@@ -40,7 +40,6 @@ export function microphoneError(error: unknown): CallError {
 
 export function apiErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    console.log('API error:', error.kind, error.status, error);
     switch (error.kind) {
       case 'network':
         return "We couldn't reach the call service. Check your internet connection and try again.";

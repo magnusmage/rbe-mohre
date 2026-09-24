@@ -60,14 +60,11 @@ export function InCallScreen() {
   // captured one may be stale, and proceeding twice would navigate twice.
   const blockerRef = useRef(blocker);
   blockerRef.current = blocker;
-  const proceedIfBlocked = () => {
-    if (blockerRef.current.state === 'blocked') blockerRef.current.proceed?.();
-  };
-
-  // The call may end (agent hang-up, drop) while the confirmation is open.
+  /** Where the caller was heading when the confirmation appeared. */
+  const leaveTarget = useRef<string | null>(null);
   useEffect(() => {
-    if (blocker.state === 'blocked' && !isLive && !isEnding) proceedIfBlocked();
-  });
+    if (blocker.state === 'blocked') leaveTarget.current = blocker.location.pathname;
+  }, [blocker]);
 
   // Follow the session closing from the other side.
   const previousStatus = useRef(status);
@@ -90,13 +87,19 @@ export function InCallScreen() {
 
   const confirmLeave = async () => {
     leaving.current = true;
+    const target = leaveTarget.current ?? ROUTES.callerReady;
     await dispatch(endCall());
-    proceedIfBlocked();
+
+    // React Router resets the blocker by itself as soon as the call is no longer
+    // live, so only proceed while it is still blocked; otherwise navigate directly.
+    const current = blockerRef.current;
+    if (current.state === 'blocked') current.proceed();
+    else navigate(target, { replace: true });
   };
 
   const cancelLeave = () => {
     leaving.current = false;
-    if (blockerRef.current.state === 'blocked') blockerRef.current.reset?.();
+    if (blockerRef.current.state === 'blocked') blockerRef.current.reset();
   };
 
   return (
