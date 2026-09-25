@@ -1,5 +1,5 @@
 import { env } from '@/config/env';
-import { ApiError, apiGet } from '@/services/http/apiClient';
+import { ApiError, apiGet, apiPost } from '@/services/http/apiClient';
 import type { AuditEntry, AuditResult, CaseDetail, CaseHistoryEntry, Tier, TranscriptEntry } from '@/types';
 
 /**
@@ -439,4 +439,66 @@ export async function getReviewCase(reviewRef: string, signal?: AbortSignal): Pr
   }
 
   return toCaseView(data);
+}
+
+// ---------------------------------------------------------------------------
+// POST /review/{review_ref}/decision
+// ---------------------------------------------------------------------------
+
+/** Frontend decision keys → backend registry codes (see app/registry.py DECISIONS). */
+export const DECISION_CODE = {
+  uphold: 'uphold_information',
+  open: 'open_complaint',
+  refer: 'refer',
+  more: 'request_more',
+} as const;
+
+export type DecisionCode = (typeof DECISION_CODE)[keyof typeof DECISION_CODE];
+
+export interface DecisionRequest {
+  decision: DecisionCode | string;
+  reviewer: string;
+}
+
+export interface DecisionResponse {
+  ok: boolean;
+  decision?: string;
+  error?: string;
+}
+
+/**
+ * `POST /review/{review_ref}/decision`. The reviewer bearer token goes in the
+ * Authorization header AND as a `token` query parameter, so operators who
+ * proxy the API in ways that strip headers still see it.
+ */
+export async function postReviewDecision(
+  reviewRef: string,
+  body: DecisionRequest,
+  signal?: AbortSignal,
+): Promise<DecisionResponse> {
+  if (!reviewRef) {
+    throw new ApiError('http', 'A review reference is required.', 400);
+  }
+  if (!body.decision || !body.decision.trim()) {
+    throw new ApiError('http', 'A decision is required.', 400);
+  }
+  if (!body.reviewer || !body.reviewer.trim()) {
+    throw new ApiError('http', 'A reviewer identity is required.', 400);
+  }
+
+  const token = env.reviewerToken;
+  const path = `/review/${encodeURIComponent(reviewRef)}/decision${
+    token ? `?token=${encodeURIComponent(token)}` : ''
+  }`;
+
+  const data = await apiPost<DecisionResponse>(
+    path,
+    { decision: body.decision.trim(), reviewer: body.reviewer.trim() },
+    { signal, headers: reviewerAuthHeader() },
+  );
+
+  if (!data || !data.ok) {
+    throw new ApiError('http', data?.error || 'The decision could not be recorded.', null);
+  }
+  return data;
 }

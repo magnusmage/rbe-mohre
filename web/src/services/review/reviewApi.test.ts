@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/services/http/apiClient';
 import { stubFetch } from '@/test/mocks/browserApis';
 import {
+  DECISION_CODE,
   formatAgo,
   formatCaseEndedAt,
   formatClock,
   getReviewCase,
   getReviewQueue,
   mapTier,
+  postReviewDecision,
   toAuditEntry,
   toCaseHistory,
   toCaseView,
@@ -353,5 +355,68 @@ describe('getReviewCase', () => {
   it('propagates 404 from the server', async () => {
     stubFetch({ status: 404, body: { detail: 'not_found' } });
     await expect(getReviewCase('RV-nope')).rejects.toMatchObject({ kind: 'http', status: 404 });
+  });
+});
+
+describe('DECISION_CODE', () => {
+  it('maps every frontend key to a valid backend registry code', () => {
+    expect(DECISION_CODE).toEqual({
+      uphold: 'uphold_information',
+      open: 'open_complaint',
+      refer: 'refer',
+      more: 'request_more',
+    });
+  });
+});
+
+describe('postReviewDecision', () => {
+  const REF = 'RV-1';
+  const body = { decision: 'uphold_information', reviewer: 'Fatima Al Marri' };
+
+  it('POSTs the decision + reviewer with the bearer token and token query param', async () => {
+    const { calls } = stubFetch({ body: { ok: true, decision: 'uphold_information' } });
+
+    await postReviewDecision(REF, body);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].init?.method).toBe('POST');
+    expect(calls[0].url).toBe(`http://api.test/review/${REF}/decision?token=test-reviewer-token`);
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer test-reviewer-token');
+    expect(JSON.parse(calls[0].init?.body as string)).toEqual(body);
+  });
+
+  it('trims decision and reviewer before sending', async () => {
+    const { calls } = stubFetch({ body: { ok: true, decision: 'refer' } });
+
+    await postReviewDecision(REF, { decision: '  refer  ', reviewer: '  Fatima  ' });
+
+    expect(JSON.parse(calls[0].init?.body as string)).toEqual({ decision: 'refer', reviewer: 'Fatima' });
+  });
+
+  it('rejects an empty review ref before hitting the network', async () => {
+    const { calls } = stubFetch({ body: {} });
+    await expect(postReviewDecision('', body)).rejects.toMatchObject({ status: 400 });
+    expect(calls.length).toBe(0);
+  });
+
+  it('rejects empty decision / reviewer before hitting the network', async () => {
+    const { calls } = stubFetch({ body: {} });
+    await expect(postReviewDecision(REF, { decision: '', reviewer: 'x' })).rejects.toMatchObject({ status: 400 });
+    await expect(postReviewDecision(REF, { decision: 'x', reviewer: '' })).rejects.toMatchObject({ status: 400 });
+    expect(calls.length).toBe(0);
+  });
+
+  it('turns a non-ok body into an ApiError', async () => {
+    stubFetch({ body: { ok: false, error: 'already_decided' } });
+    await expect(postReviewDecision(REF, body)).rejects.toMatchObject({
+      kind: 'http',
+      message: 'already_decided',
+    });
+  });
+
+  it('propagates 409 transcript_pending', async () => {
+    stubFetch({ status: 409, body: { detail: 'transcript_pending' } });
+    await expect(postReviewDecision(REF, body)).rejects.toMatchObject({ kind: 'http', status: 409 });
   });
 });

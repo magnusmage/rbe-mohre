@@ -111,7 +111,11 @@ export function CaseReviewScreen() {
         </div>
 
         {/* Keyed by case so a fresh decision form is shown per case. */}
-        <DecisionPanel key={detail.reviewRef} locked={detail.transcriptPending} />
+        <DecisionPanel
+          key={detail.reviewRef}
+          reviewRef={detail.reviewRef}
+          locked={detail.transcriptPending}
+        />
       </main>
       <CaseSidePanel
         key={detail.reviewRef}

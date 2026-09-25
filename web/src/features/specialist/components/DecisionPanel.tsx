@@ -1,22 +1,68 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircleIcon } from '@/components/icons';
-import { Button, Card, CardHeader } from '@/components/ui';
-import { DECISION_OPTIONS, DEFAULT_DECISION_NOTE, SPECIALIST } from '@/data/mock';
+import { Alert, Button, Card, CardHeader } from '@/components/ui';
+import { DECISION_OPTIONS, SPECIALIST } from '@/data/mock';
+import {
+  selectDecisionSubmission,
+  submitDecision,
+  submissionErrorDismissed,
+} from '@/features/specialist/state/caseSlice';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { cn } from '@/lib/cn';
+import { DECISION_CODE } from '@/services/review/reviewApi';
 import type { DecisionKey } from '@/types';
 
 interface DecisionPanelProps {
+  /** The case the decision belongs to; sent as `review_ref` in the request. */
+  reviewRef: string;
   /** Decision stays locked until the verified transcript is stored. */
   locked: boolean;
 }
 
-export function DecisionPanel({ locked }: DecisionPanelProps) {
-  const [selected, setSelected] = useState<DecisionKey | null>(null);
-  const [note, setNote] = useState(DEFAULT_DECISION_NOTE);
-  const [recorded, setRecorded] = useState<DecisionKey | null>(null);
+export function DecisionPanel({ reviewRef, locked }: DecisionPanelProps) {
+  const dispatch = useAppDispatch();
+  const submission = useAppSelector(selectDecisionSubmission);
+  // Only trust submission state that belongs to THIS case.
+  const ownsSubmission = submission.reviewRef === reviewRef;
 
-  const option = DECISION_OPTIONS.find((o) => o.key === (recorded ?? selected));
-  const disabled = locked || recorded !== null;
+  const [selected, setSelected] = useState<DecisionKey | null>(null);
+  const [note, setNote] = useState('');
+
+  // Reset the local form whenever the case changes.
+  useEffect(() => {
+    setSelected(null);
+    setNote('');
+  }, [reviewRef]);
+
+  const option = DECISION_OPTIONS.find((o) => o.key === selected);
+  const recorded = ownsSubmission && submission.status === 'succeeded';
+  const submitting = ownsSubmission && submission.status === 'submitting';
+  const failed = ownsSubmission && submission.status === 'failed';
+  const disabled = locked || recorded || submitting;
+
+  const noteEmpty = note.trim().length === 0;
+  const canConfirm = !!option && !noteEmpty && !disabled;
+
+  function onConfirm() {
+    if (!option || noteEmpty) return;
+    dispatch(
+      submitDecision({
+        reviewRef,
+        body: { decision: DECISION_CODE[option.key], reviewer: SPECIALIST.name },
+      }),
+    );
+  }
+
+  function onCancel() {
+    setSelected(null);
+    setNote('');
+    if (failed) dispatch(submissionErrorDismissed());
+  }
+
+  const recordedOption =
+    recorded && submission.decision
+      ? DECISION_OPTIONS.find((o) => DECISION_CODE[o.key] === submission.decision)
+      : null;
 
   return (
     <Card tone="dark" radius="md" className="mb-8">
@@ -30,10 +76,11 @@ export function DecisionPanel({ locked }: DecisionPanelProps) {
         <div
           role="radiogroup"
           aria-label="Decision"
+          aria-required="true"
           className={cn('mb-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4', locked && 'opacity-40')}
         >
           {DECISION_OPTIONS.map((opt) => {
-            const active = (recorded ?? selected) === opt.key;
+            const active = selected === opt.key || (recorded && recordedOption?.key === opt.key);
             return (
               <button
                 key={opt.key}
@@ -58,44 +105,59 @@ export function DecisionPanel({ locked }: DecisionPanelProps) {
           })}
         </div>
 
-        {option && recorded === null && (
+        {option && !recorded && (
           <div className="border-t border-line-soft pt-3.5">
             <label htmlFor="decision-note" className="mb-1.5 block text-[12.5px] text-muted">
-              Note to record (audited, visible to the worker)
+              Note to record (audited, visible to the worker) <span className="text-danger">*</span>
             </label>
             <textarea
               id="decision-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={`Reason for ${option.label} — cite finding IDs and rule.`}
-              className="min-h-[70px] w-full resize-y rounded-md border border-line px-3 py-2.5 text-[13px] outline-none focus:border-brand"
+              required
+              aria-invalid={noteEmpty}
+              disabled={submitting}
+              className="min-h-[70px] w-full resize-y rounded-md border border-line px-3 py-2.5 text-[13px] outline-none focus:border-brand disabled:bg-surface-alt"
             />
+            {noteEmpty && (
+              <div className="mt-1 text-[11.5px] text-warn-ink">A note is required before this decision can be recorded.</div>
+            )}
+
+            {failed && submission.error && (
+              <div className="mt-3">
+                <Alert title="Couldn't record decision" onDismiss={() => dispatch(submissionErrorDismissed())}>
+                  {submission.error}
+                </Alert>
+              </div>
+            )}
+
             <div className="mt-3 flex flex-wrap items-center gap-2.5">
               <div className="text-xs text-muted">
                 Signed by <strong className="text-ink">{SPECIALIST.name}</strong> · specialist token · auth verified
               </div>
               <div className="flex-1" />
-              <Button size="sm" onClick={() => setSelected(null)}>
+              <Button size="sm" onClick={onCancel} disabled={submitting}>
                 Cancel
               </Button>
               <Button
                 size="sm"
                 className="border-0 px-[18px] font-semibold text-white hover:opacity-90"
                 style={{ background: option.color }}
-                disabled={note.trim().length === 0}
-                onClick={() => setRecorded(option.key)}
+                disabled={!canConfirm}
+                onClick={onConfirm}
               >
-                Confirm: {option.label}
+                {submitting ? 'Recording…' : `Confirm: ${option.label}`}
               </Button>
             </div>
           </div>
         )}
 
-        {option && recorded !== null && (
+        {recorded && recordedOption && (
           <div role="status" className="flex items-center gap-2 border-t border-line-soft pt-3.5 text-[13px]">
-            <CheckCircleIcon size={16} color={option.color} />
+            <CheckCircleIcon size={16} color={recordedOption.color} />
             <span>
-              Decision recorded: <strong>{option.label}</strong> · signed by {SPECIALIST.name}
+              Decision recorded: <strong>{recordedOption.label}</strong> · signed by {SPECIALIST.name}
             </span>
           </div>
         )}
