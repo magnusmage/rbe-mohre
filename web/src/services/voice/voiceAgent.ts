@@ -1,10 +1,15 @@
 import type { DisconnectionDetails, VoiceConversation } from '@elevenlabs/client';
 
 export type AgentMode = 'speaking' | 'listening';
+export type AgentConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'disconnecting';
 
 export interface VoiceAgentHandlers {
   onModeChange: (mode: AgentMode) => void;
   onDisconnect: (details: DisconnectionDetails) => void;
+  /** Non-fatal SDK error; a fatal one also triggers `onDisconnect`. */
+  onError?: (message: string) => void;
+  /** Underlying SDK connection status (connecting / connected / disconnecting / disconnected). */
+  onStatusChange?: (status: AgentConnectionStatus) => void;
 }
 
 export class VoiceConnectionTimeoutError extends Error {
@@ -48,8 +53,16 @@ class VoiceAgentService {
       },
       onDisconnect: (details) => {
         if (!isCurrent()) return;
+        // Release the reference as soon as the SDK reports the session is gone, so
+        // a later end() cannot act on a dead conversation.
         this.conversation = null;
         handlers.onDisconnect(details);
+      },
+      onError: (message) => {
+        if (isCurrent()) handlers.onError?.(message);
+      },
+      onStatusChange: ({ status }) => {
+        if (isCurrent()) handlers.onStatusChange?.(status);
       },
     }) as Promise<VoiceConversation>;
 

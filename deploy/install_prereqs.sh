@@ -21,26 +21,28 @@ else
   echo "   installed: $(node --version)"
 fi
 
-echo "== Python 3.12"
+echo "== Python 3.12 (via uv; no apt, no PPA, distro-independent)"
+# apt is deliberately not used for Python: on releases without the package,
+# apt regex-matches the dots in "python3.12" and can select something
+# entirely different (seen in the field: postgresql-plpython3-12). uv
+# downloads a standalone CPython instead, on any distro.
 if command -v python3.12 >/dev/null; then
-  echo "   already satisfied: $(python3.12 --version)"
+  echo "   system interpreter already satisfies it: $(python3.12 --version)"
 elif command -v python3.11 >/dev/null; then
-  echo "   already satisfied: $(python3.11 --version)"
+  echo "   system interpreter already satisfies it: $(python3.11 --version)"
 else
-  # Never pass python3.12 to apt-get blind: on releases without the
-  # package, apt regex-matches the dots and can select something entirely
-  # different (seen in the field: postgresql-plpython3-12). Check the
-  # archive first and add deadsnakes only when it is genuinely absent.
-  if ! apt-cache show python3.12 >/dev/null 2>&1; then
-    echo "   python3.12 not in this release's archive; adding deadsnakes PPA"
-    apt-get install -y software-properties-common
-    add-apt-repository -y ppa:deadsnakes/ppa
-    apt-get update
+  if ! command -v uv >/dev/null; then
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
+    command -v uv >/dev/null || die "uv install failed; see https://docs.astral.sh/uv/"
+    echo "   installed uv $(uv --version)"
+  else
+    echo "   uv already present: $(uv --version)"
   fi
-  apt-cache show python3.12 >/dev/null 2>&1 || die "python3.12 unavailable even via deadsnakes; install Python 3.11+ manually (or use uv: https://docs.astral.sh/uv/)"
-  apt-get install -y python3.12 python3.12-venv
-  command -v python3.12 >/dev/null || die "python3.12 install did not produce the interpreter"
-  echo "   installed: $(python3.12 --version)"
+  # System location, NOT root's home: the rbe service user must be able
+  # to traverse to the interpreter, and the unit's ProtectHome=true
+  # (kept on purpose) blocks /root and /home entirely.
+  UV_PYTHON_INSTALL_DIR=/opt/uv/python uv python install 3.12
+  echo "   Python 3.12 provisioned under /opt/uv/python (deploy.sh creates the venv with it)"
 fi
 
 echo "Done. Re-run: bash preflight.sh"

@@ -6,6 +6,8 @@ interface CallHeroProps {
   muted: boolean;
   /** Current agent turn; `null` when no live session backs this screen. */
   agentMode: 'speaking' | 'listening' | null;
+  /** Elapsed call time, already formatted (mm:ss). */
+  elapsedLabel: string;
   /** Disables call controls while an action (e.g. ending) is in progress. */
   busy?: boolean;
   onToggleMute: () => void;
@@ -16,7 +18,15 @@ interface CallHeroProps {
 const STATUS_LABEL = { speaking: 'Agent speaking', listening: 'Listening' } as const;
 
 /** Dark live-call panel: recording status, orb, timer, current agent line and call controls. */
-export function CallHero({ muted, agentMode, busy = false, onToggleMute, onTransfer, onEndCall }: CallHeroProps) {
+export function CallHero({
+  muted,
+  agentMode,
+  elapsedLabel,
+  busy = false,
+  onToggleMute,
+  onTransfer,
+  onEndCall,
+}: CallHeroProps) {
   return (
     <section
       aria-label="Live call"
@@ -43,9 +53,11 @@ export function CallHero({ muted, agentMode, busy = false, onToggleMute, onTrans
         </Orb>
         <div>
           <div className="mb-1.5 text-xs font-semibold uppercase tracking-[.1em] text-[#9AC5BC]">
-            {muted ? 'Microphone muted' : STATUS_LABEL[agentMode ?? 'speaking']}
+            {busy ? 'Ending call…' : muted ? 'Microphone muted' : STATUS_LABEL[agentMode ?? 'speaking']}
           </div>
-          <div className="mono mb-2.5 text-[56px] font-medium leading-none tracking-[-.02em]">{SESSION.liveTimer}</div>
+          <div className="mono mb-2.5 text-[56px] font-medium leading-none tracking-[-.02em]" role="timer" aria-label="Call duration">
+            {elapsedLabel}
+          </div>
           <div className="max-w-[44ch] text-[15px] leading-normal text-[#C8D6E2]">
             "I've recorded your statement separately from the WPS record. I won't say who's right — a specialist will
             look at both."
@@ -64,7 +76,7 @@ export function CallHero({ muted, agentMode, busy = false, onToggleMute, onTrans
         </Button>
         <Button variant="danger" size="lg" className="flex-1" loading={busy} onClick={onEndCall}>
           <PhoneOffIcon size={18} />
-          End call
+          {busy ? 'Ending…' : 'End call'}
         </Button>
       </div>
     </section>

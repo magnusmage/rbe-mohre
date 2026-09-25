@@ -31,7 +31,9 @@ PY=""
 for c in python3.12 python3.11; do
   command -v "$c" >/dev/null && PY="$c" && break
 done
-[ -n "$PY" ] || die "python3.11+ is required (e.g. apt install python3.12-venv, or use uv)"
+if [ -z "$PY" ] && ! command -v uv >/dev/null; then
+  die "python3.11+ or uv is required: run deploy/install_prereqs.sh first"
+fi
 
 say "pre-flight (read-only checks; SKIP_PREFLIGHT=1 to skip)"
 if [ "${SKIP_PREFLIGHT:-0}" != "1" ]; then
@@ -45,7 +47,10 @@ chown rbe:rbe /var/lib/rbe
 
 say "source at $RBE_REF"
 if [ -d "$SRC/.git" ]; then
-  git -C "$SRC" fetch --tags origin
+  # --force: submission tags are retargeted to the final state before the
+  # deadline (project policy), and a plain fetch refuses to move a tag it
+  # already has, which aborted deploys in the field.
+  git -C "$SRC" fetch --tags --force origin
 else
   git clone "$RBE_REPO" "$SRC"
 fi
@@ -53,9 +58,32 @@ git -C "$SRC" checkout --detach "$RBE_REF"
 git -C "$SRC" log --format='deployed commit: %h %s' -1
 
 say "python environment"
-[ -x "$VENV/bin/pip" ] || "$PY" -m venv "$VENV"
+# A venv whose interpreter resolves into /root or /home is unusable by the
+# service: user rbe cannot traverse there and the unit's ProtectHome=true
+# blocks it regardless. Detect and rebuild such a venv.
+if [ -x "$VENV/bin/python" ]; then
+  PYREAL=$(readlink -f "$VENV/bin/python")
+  case "$PYREAL" in
+    /root/*|/home/*)
+      echo "existing venv resolves to $PYREAL (invisible to the service); rebuilding"
+      rm -rf "$VENV" ;;
+  esac
+fi
+if [ ! -x "$VENV/bin/pip" ]; then
+  if [ -n "$PY" ]; then
+    "$PY" -m venv "$VENV"
+  else
+    # uv-provisioned standalone CPython in a system path; --seed puts pip
+    # in the venv so the rest of this script is identical either way
+    UV_PYTHON_INSTALL_DIR=/opt/uv/python uv venv --seed --python 3.12 "$VENV"
+  fi
+fi
 "$VENV/bin/pip" install --quiet --upgrade pip
 "$VENV/bin/pip" install --quiet -r "$SRC/requirements.txt"
+# Prove the interpreter is executable AS THE SERVICE USER before systemd
+# tries: catches ownership and traversal problems with a clear message.
+runuser -u rbe -- "$VENV/bin/python" -c "import sys; print('venv ok for rbe:', sys.version.split()[0])" \
+  || die "user rbe cannot execute $VENV/bin/python; check the interpreter path above"
 
 say "web console build (same-origin: the edge serves it)"
 ( cd "$SRC/web" \
@@ -69,10 +97,14 @@ if [ ! -f /etc/rbe/rbe.env ]; then
   die "created /etc/rbe/rbe.env from the template; fill in every value, then re-run"
 fi
 # APP_ENV=production makes settings.check() refuse to boot with blanks,
-# but fail here with a clear message instead of a crash loop.
-if grep -qE '^(AGENT_TOOL_TOKEN|REVIEWER_TOKEN|ELEVENLABS_API_KEY|ELEVENLABS_AGENT_ID|ELEVENLABS_WEBHOOK_SECRET)=$' /etc/rbe/rbe.env; then
-  die "/etc/rbe/rbe.env still has empty values; fill them in, then re-run"
-fi
+# but fail here with a clear message naming each offender instead of a
+# crash loop. Whitespace-only and CRLF-damaged values count as empty.
+MISSING=""
+for k in AGENT_TOOL_TOKEN REVIEWER_TOKEN ELEVENLABS_API_KEY ELEVENLABS_AGENT_ID ELEVENLABS_WEBHOOK_SECRET; do
+  v=$(grep -E "^$k=" /etc/rbe/rbe.env | tail -1 | cut -d= -f2- | tr -d '[:space:]\r')
+  [ -n "$v" ] || MISSING="$MISSING $k"
+done
+[ -z "$MISSING" ] || die "empty or missing in /etc/rbe/rbe.env:$MISSING"
 
 say "systemd service"
 install -m 644 "$SRC/deploy/systemd/rbe.service" /etc/systemd/system/rbe.service

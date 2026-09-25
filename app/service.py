@@ -360,3 +360,4 @@ def review_detail(store: Store, review_ref: str) -> dict:
         "transcript": transcript,
         "audit": store.audit_for(case_ref),
     }
+
