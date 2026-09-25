@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { caseReducer } from '@/features/specialist/state/caseSlice';
+import { reviewQueueReducer } from '@/features/specialist/state/reviewQueueSlice';
 import type { CallError } from './callErrors';
+
+const initialReviewQueue = reviewQueueReducer(undefined, { type: '@@init' });
+const initialCaseState = caseReducer(undefined, { type: '@@init' });
 import {
   callErrorDismissed,
   callSessionReducer,
@@ -272,7 +277,11 @@ describe('callSession reducer — ending', () => {
 });
 
 describe('callSession selectors', () => {
-  const asRoot = (callSession: CallSessionState) => ({ callSession });
+  const asRoot = (callSession: CallSessionState) => ({
+    callSession,
+    reviewQueue: initialReviewQueue,
+    case: initialCaseState,
+  });
 
   it('expose the pieces screens need', () => {
     const state = asRoot(connected({ muted: true, agentMode: 'speaking', agentError: 'glitch' }));

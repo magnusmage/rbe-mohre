@@ -7,16 +7,35 @@ import { vi } from 'vitest';
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { callSessionReducer, type CallSessionState } from '@/features/caller/state/callSessionSlice';
+import { caseReducer, type CaseState } from '@/features/specialist/state/caseSlice';
+import {
+  reviewQueueReducer,
+  type ReviewQueueState,
+} from '@/features/specialist/state/reviewQueueSlice';
 import type { RootState } from '@/store';
 
 /** The slice's own initial state, used as the base for seeded test states. */
 export const initialCallSession: CallSessionState = callSessionReducer(undefined, { type: '@@test/init' });
+export const initialReviewQueue: ReviewQueueState = reviewQueueReducer(undefined, { type: '@@test/init' });
+export const initialCase: CaseState = caseReducer(undefined, { type: '@@test/init' });
 
-/** Fresh store per test; accepts a partial `callSession` slice as the starting point. */
-export function makeStore(callSession?: Partial<CallSessionState>) {
+/** Fresh store per test; accepts partial slice states as the starting point. */
+export function makeStore(
+  callSession?: Partial<CallSessionState>,
+  reviewQueue?: Partial<ReviewQueueState>,
+  caseState?: Partial<CaseState>,
+) {
+  const preloadedState =
+    callSession || reviewQueue || caseState
+      ? {
+          callSession: { ...initialCallSession, ...callSession },
+          reviewQueue: { ...initialReviewQueue, ...reviewQueue },
+          case: { ...initialCase, ...caseState },
+        }
+      : undefined;
   return configureStore({
-    reducer: { callSession: callSessionReducer },
-    preloadedState: callSession ? { callSession: { ...initialCallSession, ...callSession } } : undefined,
+    reducer: { callSession: callSessionReducer, reviewQueue: reviewQueueReducer, case: caseReducer },
+    preloadedState,
   });
 }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { TranscriptList } from '@/components/transcript/Transcript';
-import { AUDIT, CASE_HISTORY, RULE_IN_FORCE, TRANSCRIPT } from '@/data/mock';
 import { cn } from '@/lib/cn';
+import type { AuditEntry, CaseHistoryEntry, TranscriptEntry } from '@/types';
 import { AuditTimeline } from './AuditLog';
 
 type Tab = 'transcript' | 'audit' | 'rule';
@@ -16,7 +16,19 @@ function PanelLabel({ children }: { children: string }) {
   return <div className="text-[11px] uppercase tracking-[.05em] text-muted">{children}</div>;
 }
 
-export function CaseSidePanel() {
+function TabEmpty({ children }: { children: string }) {
+  return <div className="text-[12.5px] text-muted">{children}</div>;
+}
+
+interface CaseSidePanelProps {
+  transcript: TranscriptEntry[];
+  transcriptPending: boolean;
+  audit: AuditEntry[];
+  caseHistory: CaseHistoryEntry[];
+  rule: { id: string; summary: string | null } | null;
+}
+
+export function CaseSidePanel({ transcript, transcriptPending, audit, caseHistory, rule }: CaseSidePanelProps) {
   const [tab, setTab] = useState<Tab>('transcript');
 
   return (
@@ -46,31 +58,48 @@ export function CaseSidePanel() {
         {tab === 'transcript' && (
           <>
             <PanelLabel>Post-call transcript · HMAC verified</PanelLabel>
-            <TranscriptList entries={TRANSCRIPT} density="compact" />
+            {transcript.length > 0 ? (
+              <TranscriptList entries={transcript} density="compact" />
+            ) : transcriptPending ? (
+              <TabEmpty>Transcript pending — the webhook has not delivered it yet.</TabEmpty>
+            ) : (
+              <TabEmpty>No transcript is stored for this case.</TabEmpty>
+            )}
             <div className="my-1 h-px bg-line-soft" />
             <PanelLabel>Case history</PanelLabel>
-            <ol className="flex flex-col gap-2 text-[12.5px] text-ink">
-              {CASE_HISTORY.map((h, i) => (
-                <li key={`${h.time}-${i}`}>
-                  <span className="mono text-subtle">{h.time}</span> · {h.event}
-                </li>
-              ))}
-            </ol>
+            {caseHistory.length > 0 ? (
+              <ol className="flex flex-col gap-2 text-[12.5px] text-ink">
+                {caseHistory.map((h, i) => (
+                  <li key={`${h.time}-${i}`}>
+                    <span className="mono text-subtle">{h.time}</span> · {h.event}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <TabEmpty>No case-history milestones yet.</TabEmpty>
+            )}
           </>
         )}
 
         {tab === 'audit' && (
           <>
             <PanelLabel>Agent activity · append-only</PanelLabel>
-            <AuditTimeline entries={AUDIT} />
+            <AuditTimeline entries={audit} />
           </>
         )}
 
         {tab === 'rule' && (
           <>
-            <PanelLabel>{`Rule in force · ${RULE_IN_FORCE.id}`}</PanelLabel>
-            <p className="m-0">{RULE_IN_FORCE.summary}</p>
-            <p className="m-0 text-muted">{RULE_IN_FORCE.effective}</p>
+            <PanelLabel>{rule ? `Rule in force · ${rule.id}` : 'Rule text'}</PanelLabel>
+            {rule ? (
+              rule.summary ? (
+                <p className="m-0">{rule.summary}</p>
+              ) : (
+                <TabEmpty>Rule summary not available in this case pack.</TabEmpty>
+              )
+            ) : (
+              <TabEmpty>No rule was cited on this case.</TabEmpty>
+            )}
           </>
         )}
       </div>

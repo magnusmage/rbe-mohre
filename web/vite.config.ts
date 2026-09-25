@@ -23,8 +23,9 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     clearMocks: true,
     restoreMocks: true,
-    // Deterministic API base: tests never read the developer's .env or hit a real backend.
-    env: { VITE_API_BASE_URL: 'http://api.test' },
+    // Deterministic API base + reviewer token: tests never read the developer's
+    // .env or hit a real backend.
+    env: { VITE_API_BASE_URL: 'http://api.test', VITE_REVIEWER_TOKEN: 'test-reviewer-token' },
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'html', 'lcov'],

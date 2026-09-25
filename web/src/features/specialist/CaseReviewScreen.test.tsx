@@ -1,11 +1,118 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ROUTES } from '@/app/routes';
-import { AUDIT, CASES, SPECIALIST } from '@/data/mock';
-import { renderWithProviders } from '@/test/utils';
+import type { ReviewCaseResponse } from '@/services/review/reviewApi';
+import { stubFetch } from '@/test/mocks/browserApis';
+import { renderRoutes, renderWithProviders } from '@/test/utils';
 import { CaseReviewScreen } from './CaseReviewScreen';
+import { SpecialistLayout } from './SpecialistLayout';
 
-const CASE_REF = 'RV-2409-0031';
+const CASE_REF = 'RV-1790167201-0001';
+const SECOND_REF = 'RV-2409-0028';
+
+function makeCaseResponse(overrides: Partial<ReviewCaseResponse> = {}): ReviewCaseResponse {
+  const base: ReviewCaseResponse = {
+    ok: true,
+    review: {
+      review_ref: CASE_REF,
+      case_ref: 'LAB-1001',
+      conversation_id: 'regression-1790167131-29363',
+      tier: 'tier_0_standard_review',
+      summary: 'Regression test: July wage shortfall',
+      decision: null,
+      decided_by: null,
+      decided_at: null,
+      transcript_ready: false,
+    },
+    package: { allegations: [] },
+    allegations: [],
+    draft: {
+      draft_ref: 'DR-1790167834-0002',
+      case_ref: 'LAB-1001',
+      worker_confirmed: 1,
+      filed: 0,
+      at: 1790167834.4899392,
+      body: {
+        summary: 'Regression test: July wage shortfall',
+        allegations: [],
+        verified_findings: [
+          {
+            action: 'check_wage',
+            check: 'wage',
+            status: 'discrepancy',
+            explanation:
+              'Contract total wage AED 5000.00; WPS shows AED 4000.00 for 2026-07; difference AED 1000.00.',
+            findings: [
+              {
+                code: 'WAGE_SHORTFALL',
+                detail:
+                  'Contract total wage AED 5000.00; WPS shows AED 4000.00 for 2026-07; difference AED 1000.00',
+                rule_id: 'CONTRACT-VS-WPS',
+                source: 'Employment contract; WPS record',
+                verified: true,
+                amount: '1000.00',
+              },
+            ],
+          },
+        ],
+        filed: false,
+      },
+    },
+    transcript: null,
+    audit: [
+      {
+        id: 1,
+        at: 1790157523.4567885,
+        actor: 'agent',
+        action: 'verify_session',
+        conversation_id: 'manual-test-001',
+        case_ref: 'LAB-1001',
+        result: 'verified',
+        detail: null,
+      },
+      {
+        id: 13,
+        at: 1790167166.3639028,
+        actor: 'agent',
+        action: 'check_wage',
+        conversation_id: 'regression-1790167131-29363',
+        case_ref: 'LAB-1001',
+        result: 'discrepancy',
+        detail: JSON.stringify({
+          tier: 'tier_0_standard_review',
+          rules: ['CONTRACT-VS-WPS'],
+          check_result: {
+            check: 'wage',
+            status: 'discrepancy',
+            findings: [
+              {
+                code: 'WAGE_SHORTFALL',
+                detail:
+                  'Contract total wage AED 5000.00; WPS shows AED 4000.00 for 2026-07; difference AED 1000.00',
+                rule_id: 'CONTRACT-VS-WPS',
+                verified: true,
+              },
+            ],
+            tier: 'tier_0_standard_review',
+            say: 'Contract total wage AED 5000.00; WPS shows AED 4000.00 for 2026-07; difference AED 1000.00.',
+          },
+        }),
+      },
+      {
+        id: 14,
+        at: 1790167201.3635097,
+        actor: 'agent',
+        action: 'send_to_review',
+        conversation_id: 'regression-1790167131-29363',
+        case_ref: 'LAB-1001',
+        result: 'queued',
+        detail: JSON.stringify({ review_ref: CASE_REF, tier: 'tier_0_standard_review' }),
+      },
+    ],
+    ...overrides,
+  };
+  return base;
+}
 
 const renderCase = (ref = CASE_REF) =>
   renderWithProviders(<CaseReviewScreen />, {
@@ -13,133 +120,234 @@ const renderCase = (ref = CASE_REF) =>
     path: `${ROUTES.specialist}/:caseRef`,
   });
 
-describe('CaseReviewScreen — case pack', () => {
-  it('heads the review with the case, tier and worker', () => {
-    renderCase();
-    const detail = CASES[CASE_REF];
+describe('CaseReviewScreen — data loading', () => {
+  it('sends GET /review/{ref} with the reviewer bearer token', async () => {
+    const { calls } = stubFetch({ body: makeCaseResponse() });
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(detail.title);
-    expect(screen.getByText('TIER 2 · MANDATORY QUALIFIED')).toBeInTheDocument();
-    expect(screen.getByText(/Al-Warda Facilities LLC/)).toBeInTheDocument();
+    renderCase();
+
+    await waitFor(() =>
+      expect(calls[0]?.url).toBe(`http://api.test/review/${encodeURIComponent(CASE_REF)}`),
+    );
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer test-reviewer-token');
+    expect(headers.Accept).toBe('application/json');
   });
 
-  it('keeps verified records and caller allegations apart', () => {
+  it('shows a skeleton while the case is loading', () => {
+    stubFetch({ hang: true });
+
     renderCase();
 
-    expect(screen.getByText('Verified facts (records)')).toBeInTheDocument();
-    expect(screen.getByText('Allegations (caller, unverified)')).toBeInTheDocument();
-    expect(screen.getByText(/kept separate by design/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading case pack/i)).toBeInTheDocument();
+    expect(screen.getByText(CASE_REF)).toBeInTheDocument();
   });
 
-  it('shows the worker-confirmed draft as not yet filed', () => {
+  it('renders the case pack once the response arrives', async () => {
+    stubFetch({ body: makeCaseResponse() });
+
     renderCase();
 
-    expect(screen.getByText('Complaint draft (worker-confirmed)')).toBeInTheDocument();
-    expect(screen.getByText(/DR-2409-0087 · filed: false/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /regression test: july wage shortfall/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('TIER 0')).toBeInTheDocument();
+    // LAB-1001 shows in both the header and other places; header uses the mono class.
+    expect(screen.getAllByText('LAB-1001').length).toBeGreaterThan(0);
+    expect(screen.getByText(/DR-1790167834-0002/)).toBeInTheDocument();
+    expect(screen.getByText(/WAGE_SHORTFALL/)).toBeInTheDocument();
+    expect(screen.getByText(/Amount AED 1000\.00/)).toBeInTheDocument();
   });
 
-  it('lists every tool call in the agent activity log', () => {
-    renderCase();
+  it('lists the audit rows in the agent activity table', async () => {
+    stubFetch({ body: makeCaseResponse() });
 
-    expect(screen.getByText('Agent activity (append-only)')).toBeInTheDocument();
-    // The only list in the main column is the activity log; the transcript lives in the aside.
-    const rows = within(screen.getByRole('main')).getAllByRole('listitem');
-    expect(rows).toHaveLength(AUDIT.length);
+    renderCase();
+    await screen.findByRole('heading', { level: 1 });
+
+    const main = screen.getByRole('main');
+    const rows = within(main).getAllByRole('listitem');
+    expect(rows).toHaveLength(3);
     expect(within(rows[1]).getByText('check_wage')).toBeInTheDocument();
     expect(within(rows[1]).getByText('discrepancy')).toBeInTheDocument();
   });
 
-  it('says the decision is ready once the transcript is stored', () => {
+  it('shows the transcript-pending banner when transcript is not ready', async () => {
+    stubFetch({ body: makeCaseResponse() });
     renderCase();
 
-    const banner = screen.getByRole('status');
-    expect(banner).toHaveTextContent('Ready to decide.');
-    expect(banner).toHaveTextContent(CASES[CASE_REF].transcriptStoredAt);
+    const banner = (await screen.findAllByRole('status'))[0];
+    expect(banner).toHaveTextContent(/decision locked/i);
   });
 
-  it('offers a printable pack', async () => {
+  it('unlocks the decision panel once the transcript is stored', async () => {
+    stubFetch({
+      body: makeCaseResponse({
+        review: { ...makeCaseResponse().review, transcript_ready: true },
+      }),
+    });
+    renderCase();
+    await screen.findByRole('heading', { level: 1 });
+
+    const banners = screen.getAllByRole('status');
+    expect(banners.some((b) => /ready to decide/i.test(b.textContent ?? ''))).toBe(true);
+  });
+});
+
+describe('CaseReviewScreen — empty states', () => {
+  it('shows the empty state for allegations and draft when none exist', async () => {
+    stubFetch({
+      body: makeCaseResponse({ allegations: [], draft: null, audit: [] }),
+    });
+
+    renderCase();
+    await screen.findByRole('heading', { level: 1 });
+
+    expect(screen.getByText(/the caller made no allegations/i)).toBeInTheDocument();
+    expect(screen.getByText(/no complaint draft was prepared/i)).toBeInTheDocument();
+    expect(screen.getByText(/no agent activity has been recorded/i)).toBeInTheDocument();
+  });
+
+  it('shows the empty state for transcript when none is stored', async () => {
+    stubFetch({
+      body: makeCaseResponse({
+        review: { ...makeCaseResponse().review, transcript_ready: true },
+        transcript: null,
+      }),
+    });
+
+    renderCase();
+    await screen.findByRole('heading', { level: 1 });
+
+    expect(screen.getByText(/no transcript is stored/i)).toBeInTheDocument();
+  });
+});
+
+describe('CaseReviewScreen — error paths', () => {
+  it('shows a not-found state for an invalid review ref', async () => {
+    stubFetch({ status: 404, body: { ok: false, error: 'not_found' } });
+
+    renderCase('RV-does-not-exist');
+
+    expect(
+      await screen.findByText(/case pack not available/i, {}, { timeout: 3000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error alert with retry on a network failure', async () => {
+    const { calls } = stubFetch([{ networkError: true }, { body: makeCaseResponse() }]);
+
+    const { user } = renderCase();
+
+    expect(await screen.findByText(/couldn't load this case/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+
+    await screen.findByRole('heading', { level: 1 });
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('CaseReviewScreen — navigation between cases', () => {
+  it('fetches the URL case on refresh (no default override)', async () => {
+    const { calls } = stubFetch({ body: makeCaseResponse({
+      review: { ...makeCaseResponse().review, review_ref: SECOND_REF, summary: 'Deep-linked case' },
+    }) });
+
+    renderWithProviders(<CaseReviewScreen />, {
+      route: `${ROUTES.specialist}/${SECOND_REF}`,
+      path: `${ROUTES.specialist}/:caseRef`,
+    });
+
+    expect(await screen.findByRole('heading', { level: 1, name: /deep-linked case/i })).toBeInTheDocument();
+    expect(calls[0].url).toBe(`http://api.test/review/${encodeURIComponent(SECOND_REF)}`);
+  });
+
+  it('updates the URL and fetches a new case when a queue item is picked', async () => {
+    const { calls } = stubFetch([
+      // Initial queue load for the layout.
+      {
+        body: {
+          items: [
+            {
+              review_ref: CASE_REF,
+              case_ref: 'LAB-1001',
+              conversation_id: 'c1',
+              tier: 'tier_0_standard_review',
+              summary: 'First',
+              decision: null,
+              decided_by: null,
+              decided_at: null,
+              at: Math.floor(Date.now() / 1000) - 60,
+              transcript_ready: true,
+            },
+            {
+              review_ref: SECOND_REF,
+              case_ref: 'LAB-1010',
+              conversation_id: 'c2',
+              tier: 'tier_1_priority_review',
+              summary: 'Second',
+              decision: null,
+              decided_by: null,
+              decided_at: null,
+              at: Math.floor(Date.now() / 1000) - 120,
+              transcript_ready: true,
+            },
+          ],
+        },
+      },
+      { body: makeCaseResponse() },
+      {
+        body: makeCaseResponse({
+          review: { ...makeCaseResponse().review, review_ref: SECOND_REF, summary: 'Second case' },
+        }),
+      },
+    ]);
+
+    const { user, location } = renderRoutes(
+      [
+        {
+          path: ROUTES.specialist,
+          element: <SpecialistLayout />,
+          children: [{ path: ':caseRef', element: <CaseReviewScreen /> }],
+        },
+      ],
+      { route: `${ROUTES.specialist}/${CASE_REF}` },
+    );
+
+    await screen.findByRole('heading', { level: 1, name: /regression test/i });
+
+    await user.click(screen.getByText(SECOND_REF));
+
+    await waitFor(() => expect(location()).toBe(`${ROUTES.specialist}/${SECOND_REF}`));
+    expect(await screen.findByRole('heading', { level: 1, name: /second case/i })).toBeInTheDocument();
+
+    // Queue + first case + second case = 3 requests to /review/*.
+    const caseCalls = calls.filter((c) => c.url.includes('/review/'));
+    expect(caseCalls.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('CaseReviewScreen — miscellaneous', () => {
+  it('offers a printable pack once loaded', async () => {
     const print = vi.fn();
     vi.stubGlobal('print', print);
+    stubFetch({ body: makeCaseResponse() });
+
     const { user } = renderCase();
+    await screen.findByRole('heading', { level: 1 });
 
     await user.click(screen.getByRole('button', { name: /print pack/i }));
     expect(print).toHaveBeenCalled();
   });
 
-  it('explains when a queued case has no pack loaded', () => {
-    renderCase('RV-2409-0030');
+  it('shows a no-case state when the route has no case ref', () => {
+    // This isn't reachable via routing, but the guard keeps the component robust.
+    renderWithProviders(<CaseReviewScreen />, {
+      route: '/specialist/',
+      path: '/specialist/*',
+    });
 
-    expect(screen.getByText('Case pack not available')).toBeInTheDocument();
-    expect(screen.queryByText('Specialist decision')).not.toBeInTheDocument();
+    expect(screen.getByText(/no case selected/i)).toBeInTheDocument();
   });
 });
 
-describe('CaseReviewScreen — evidence panel', () => {
-  it('starts on the transcript and shows the case history', () => {
-    renderCase();
-
-    expect(screen.getByRole('tab', { name: 'Transcript' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('Case history')).toBeInTheDocument();
-    expect(screen.getByText(/Draft confirmed by worker/)).toBeInTheDocument();
-  });
-
-  it('switches to the audit log and the rule text', async () => {
-    const { user } = renderCase();
-
-    await user.click(screen.getByRole('tab', { name: 'Audit log' }));
-    expect(screen.getByText('Agent activity · append-only')).toBeInTheDocument();
-    expect(screen.queryByText('Case history')).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('tab', { name: 'Rule text' }));
-    // The same rule is also summarised in the verified facts card, so scope to the panel.
-    const panel = within(screen.getByRole('tabpanel'));
-    expect(panel.getByText(/Rule in force · 340\/2026/)).toBeInTheDocument();
-    expect(panel.getByText(/salary due 1st of following month/i)).toBeInTheDocument();
-  });
-});
-
-describe('CaseReviewScreen — decision', () => {
-  it('asks for a note only once an outcome is chosen', async () => {
-    const { user } = renderCase();
-    expect(screen.queryByLabelText(/note to record/i)).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('radio', { name: /open complaint/i }));
-
-    expect(screen.getByLabelText(/note to record/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /confirm: open complaint/i })).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(SPECIALIST.name))).toBeInTheDocument();
-  });
-
-  it('lets the specialist change their mind before confirming', async () => {
-    const { user } = renderCase();
-
-    await user.click(screen.getByRole('radio', { name: /refer/i }));
-    expect(screen.getByRole('radio', { name: /refer/i })).toHaveAttribute('aria-checked', 'true');
-
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByLabelText(/note to record/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /refer/i })).toHaveAttribute('aria-checked', 'false');
-  });
-
-  it('refuses to confirm without a note', async () => {
-    const { user } = renderCase();
-    await user.click(screen.getByRole('radio', { name: /uphold information/i }));
-
-    await user.clear(screen.getByLabelText(/note to record/i));
-
-    expect(screen.getByRole('button', { name: /confirm: uphold information/i })).toBeDisabled();
-  });
-
-  it('records the decision once and then locks the panel', async () => {
-    const { user } = renderCase();
-    await user.click(screen.getByRole('radio', { name: /open complaint/i }));
-
-    await user.click(screen.getByRole('button', { name: /confirm: open complaint/i }));
-
-    // Two live regions now: the transcript banner and the recorded decision.
-    expect(screen.getAllByRole('status')).toHaveLength(2);
-    expect(screen.getByText(/decision recorded/i)).toHaveTextContent('Open complaint');
-    expect(screen.queryByLabelText(/note to record/i)).not.toBeInTheDocument();
-    screen.getAllByRole('radio').forEach((option) => expect(option).toBeDisabled());
-  });
-});

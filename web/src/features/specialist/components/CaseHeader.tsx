@@ -15,8 +15,8 @@ export function CaseHeader({ detail }: { detail: CaseDetail }) {
         </div>
         <h1 className="mb-1 text-[22px] font-semibold tracking-[-.01em]">{detail.title}</h1>
         <div className="text-[13px] text-muted">
-          Case <span className="mono">{detail.caseRef}</span> · Worker <span className="mono">{detail.workerId}</span> ·{' '}
-          {detail.employer} · Call ended {detail.endedAt}
+          Case <span className="mono">{detail.caseRef}</span> · Worker <span className="mono">{detail.workerId}</span>
+          {detail.employer && detail.employer !== '—' ? ` · ${detail.employer}` : ''} · Call ended {detail.endedAt}
         </div>
       </div>
       <div className="flex shrink-0 gap-2">

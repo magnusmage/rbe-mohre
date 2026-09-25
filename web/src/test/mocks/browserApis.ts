@@ -1,4 +1,6 @@
-import { vi } from 'vitest';
+import { AxiosError, AxiosHeaders, CanceledError, type AxiosAdapter, type AxiosResponse } from 'axios';
+import { afterEach, vi } from 'vitest';
+import { httpClient } from '@/services/http/apiClient';
 
 /**
  * MOCK — browser APIs jsdom does not implement.
@@ -75,41 +77,116 @@ export interface FetchStubResponse {
   body?: unknown;
   /** Sent instead of JSON, for invalid-body cases. */
   rawBody?: string;
-  /** Rejects the request (network failure). */
+  /** Rejects the request (transport-level failure). */
   networkError?: boolean;
   /** Never settles until the request is aborted, for timeout/abort cases. */
   hang?: boolean;
 }
 
+/** Recorded shape mirrors the pre-Axios `fetch(input, init)` for test parity. */
+export interface StubbedCall {
+  url: string;
+  init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    signal?: AbortSignal;
+    body?: unknown;
+  };
+}
+
+const STATUS_TEXT: Record<number, string> = {
+  200: 'OK',
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+  409: 'Conflict',
+  422: 'Unprocessable Entity',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+};
+
+/** Restore the shared axios instance's adapter after every test that stubbed it. */
+const originalAdapter = httpClient.defaults.adapter;
+afterEach(() => {
+  httpClient.defaults.adapter = originalAdapter;
+});
+
 /**
- * MOCK — stands in for the RBE backend (`GET /session/signed-url` and friends).
+ * MOCK — stands in for the RBE backend by swapping the shared Axios adapter.
  * Replace with: a contract test against a real staging backend, if that is ever wanted.
  */
 export function stubFetch(responses: FetchStubResponse | FetchStubResponse[]) {
   const queue = Array.isArray(responses) ? [...responses] : [responses];
-  const calls: { url: string; init?: RequestInit }[] = [];
+  const calls: StubbedCall[] = [];
 
-  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    calls.push({ url: String(input), init });
+  const adapter: AxiosAdapter = (config) => {
+    const url = `${config.baseURL ?? ''}${config.url ?? ''}`;
+    const headers: Record<string, string> = {};
+    const rawHeaders = config.headers;
+    if (rawHeaders) {
+      // Normalise AxiosHeaders / plain object into a flat record for assertions.
+      const flat =
+        rawHeaders instanceof AxiosHeaders ? rawHeaders.toJSON() : (rawHeaders as Record<string, unknown>);
+      for (const [key, value] of Object.entries(flat)) {
+        if (typeof value === 'string') headers[key] = value;
+      }
+    }
+    calls.push({
+      url,
+      init: {
+        method: config.method?.toUpperCase(),
+        headers,
+        signal: (config.signal as AbortSignal | undefined) ?? undefined,
+        body: config.data,
+      },
+    });
+
     const next = queue.length > 1 ? queue.shift()! : queue[0];
 
-    if (next.networkError) return Promise.reject(new TypeError('Failed to fetch'));
+    if (next.networkError) {
+      return Promise.reject(new AxiosError('Failed to fetch', 'ERR_NETWORK', config));
+    }
 
     if (next.hang) {
-      return new Promise<Response>((_, reject) => {
-        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      return new Promise<AxiosResponse>((_, reject) => {
+        const signal = config.signal as AbortSignal | undefined;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        if (config.timeout && config.timeout > 0) {
+          timer = setTimeout(() => {
+            reject(new AxiosError('timeout of ' + config.timeout + 'ms exceeded', 'ECONNABORTED', config));
+          }, config.timeout);
+        }
+        signal?.addEventListener(
+          'abort',
+          () => {
+            if (timer) clearTimeout(timer);
+            reject(new CanceledError('canceled', undefined, config));
+          },
+          { once: true },
+        );
       });
     }
 
+    const status = next.status ?? 200;
     const body = next.rawBody ?? JSON.stringify(next.body ?? {});
-    return Promise.resolve(
-      new Response(body, {
-        status: next.status ?? 200,
-        headers: { 'Content-Type': next.rawBody ? 'text/plain' : 'application/json' },
-      }),
-    );
-  });
+    const response: AxiosResponse<string> = {
+      data: body,
+      status,
+      statusText: STATUS_TEXT[status] ?? '',
+      headers: { 'content-type': next.rawBody ? 'text/plain' : 'application/json' },
+      config,
+      request: {},
+    };
+    return Promise.resolve(response);
+  };
 
-  vi.stubGlobal('fetch', fetchMock);
+  httpClient.defaults.adapter = adapter;
+
+  // `fetchMock` is kept in the return for backwards compatibility with any
+  // future test that wants a callable spy; `calls` is what the suite reads.
+  const fetchMock = vi.fn();
   return { fetchMock, calls };
 }
