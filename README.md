@@ -138,10 +138,131 @@ failure behaviour per boundary; error-code handling for the agent is in
 
 ## Use cases
 
-UC-01 to UC-20 (wage discrepancy, missing evidence, contested deduction,
-effective-dated rule change across Res. 598/2022 to Res. 340/2026, settlement
-check before signing, record-vs-allegation, domestic worker routing, scope
-violations, outages, opt-out). Each has a fixture in `data/workers.json` and
+RBE is designed for record-specific rights checks, not generic FAQ answers.
+The test suite covers UC-01 through UC-20; these representative cases show
+how verified records, deterministic rules and human review work together.
+
+### UC-01/11 — Wage discrepancy
+
+A worker says their July salary was short. After verification, RBE checks
+the worker's own contract and WPS record for that month.
+
+- Contract wage: **AED 5,000**
+- WPS payment: **AED 4,000**
+- Verified shortfall: **AED 1,000**
+- Outcome: explain the discrepancy and optionally prepare a complaint draft
+
+```bash
+curl -s -X POST "$HOST/tools/check_wage" \
+  -H "Authorization: Bearer $AGENT_TOOL_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversation_id": "conv-demo-01",
+    "case_ref": "LAB-1001",
+    "period": "2026-07"
+  }'
+```
+
+The LLM does not calculate the AED 1,000 difference: the control plane does
+the arithmetic with `Decimal` and returns the verified result for the agent
+to explain.
+
+### UC-03 — Disputed deduction
+
+The WPS record shows an **AED 700 deduction**, but the worker disputes the
+reason for it. RBE verifies what the record actually shows without treating
+the worker's account as false.
+
+```text
+WPS record                      Worker says
+AED 700 deduction               "I dispute this deduction"
+       │                                  │
+       └──── verified fact     allegation ┘
+                         │
+                         ▼
+                 Tier 2 review package
+                         │
+                         ▼
+               Qualified specialist
+```
+
+The two claims are deliberately stored separately. The AI does not decide
+which party is correct.
+
+### UC-13 — Settlement before signing
+
+A worker receives an exit settlement and wants to know whether the amount
+matches their entitlement before signing.
+
+```text
+Contract + service dates + applicable rule
+                    │
+                    ▼
+           Deterministic calculation
+                    │
+             ┌──────┴──────┐
+             │             │
+       Expected amount   Recorded offer
+             │             │
+             └──────┬──────┘
+                    ▼
+             Difference explained
+                    │
+                    ▼
+          Worker makes the decision
+```
+
+RBE can explain the calculated entitlement and any difference, but it never
+tells the worker to **sign** or **not sign**.
+
+### UC-14 — Rule changes over time
+
+RBE does not apply today's rule to an older pay period. The control plane
+selects the rule that was actually in force for the month being checked.
+
+```text
+                 Payment period
+                       │
+             ┌─────────┴─────────┐
+             ▼                   ▼
+        April 2026           June 2026
+             │                   │
+      Res. 598/2022        Res. 340/2026
+             │                   │
+             └─────────┬─────────┘
+                       ▼
+              Period-correct result
+```
+
+This makes rule selection deterministic and effective-dated rather than
+leaving legal-rule selection to the LLM.
+
+### UC-08 — Records system unavailable
+
+A rights check is only useful if its evidence can be trusted. If WPS or
+another authoritative dependency is unavailable, RBE refuses to manufacture
+an answer.
+
+```text
+Worker asks about missing pay
+             │
+             ▼
+       WPS record lookup
+             │
+          unavailable
+             │
+             ▼
+      No guessed conclusion
+             │
+       ┌─────┴─────┐
+       ▼           ▼
+ Human transfer   Consented callback
+```
+
+The failure is audited and the worker is routed safely instead of receiving
+an unsupported conclusion.
+
+Each has a fixture in `data/workers.json` and
 a test class in `tests/test_usecases.py`; the demo scripts in
 `agent/test_configs/` mirror them as Agent Testing scenarios S1-S10.
 
