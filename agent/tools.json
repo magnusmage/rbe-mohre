@@ -1,44 +1,44 @@
 {
-  "tools": [
-    {
-      "name": "verify_session",
-      "type": "webhook",
-      "config": "tool_configs/verify_session.json"
-    },
-    {
-      "name": "check_wage",
-      "type": "webhook",
-      "config": "tool_configs/check_wage.json"
-    },
-    {
-      "name": "check_payment_timing",
-      "type": "webhook",
-      "config": "tool_configs/check_payment_timing.json"
-    },
-    {
-      "name": "check_settlement",
-      "type": "webhook",
-      "config": "tool_configs/check_settlement.json"
-    },
-    {
-      "name": "record_allegation",
-      "type": "webhook",
-      "config": "tool_configs/record_allegation.json"
-    },
-    {
-      "name": "draft_complaint",
-      "type": "webhook",
-      "config": "tool_configs/draft_complaint.json"
-    },
-    {
-      "name": "send_to_review",
-      "type": "webhook",
-      "config": "tool_configs/send_to_review.json"
-    },
-    {
-      "name": "transfer_to_human",
-      "type": "webhook",
-      "config": "tool_configs/transfer_to_human.json"
-    }
-  ]
+    "tools": [
+        {
+            "type": "webhook",
+            "config": "tool_configs/verify_session.json",
+            "id": "<verify_session_tool_id>"
+        },
+        {
+            "type": "webhook",
+            "config": "tool_configs/check_wage.json",
+            "id": "<check_wage_tool_id>"
+        },
+        {
+            "type": "webhook",
+            "config": "tool_configs/check_payment_timing.json",
+            "id": "<check_payment_timing_tool_id>"
+        },
+        {
+            "type": "webhook",
+            "config": "tool_configs/check_settlement.json",
+            "id": "<check_settlement_tool_id>"
+        },
+        {
+            "type": "webhook",
+            "config": "tool_configs/record_allegation.json",
+            "id": "<record_allegation_tool_id>"
+        },
+        {
+            "type": "webhook",
+            "config": "tool_configs/draft_complaint.json",
+            "id": "<draft_complaint_tool_id>"
+        },
+        {
+            "type": "webhook",
+            "config": "tool_configs/send_to_review.json",
+            "id": "<send_to_review_tool_id>"
+        },
+        {
+            "type": "webhook",
+            "config": "tool_configs/transfer_to_human.json",
+            "id": "<transfer_to_human_tool_id>"
+        }
+    ]
 }

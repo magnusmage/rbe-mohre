@@ -1,8 +1,10 @@
 {
-  "agents": [
-    {
-      "name": "rbe-worker-rights",
-      "config": "agent_configs/rbe_agent.json"
-    }
-  ]
+    "agents": [
+        {
+            "config": "agent_configs/rbe_agent.json",
+            "id": "<AGENT_ID>",
+            "branch_id": "<BRANCH_ID>",
+            "version_id": "<VERSION_ID>"
+        }
+    ]
 }

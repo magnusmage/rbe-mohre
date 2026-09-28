@@ -2,50 +2,529 @@
   "name": "rbe-worker-rights",
   "conversation_config": {
     "agent": {
-      "prompt": {
-        "prompt": "{{file:../system_prompt.md}}",
-        "llm": "<chosen-in-platform>",
-        "temperature": 0.2,
-        "tools": [
-          "verify_session",
-          "check_wage",
-          "check_payment_timing",
-          "check_settlement",
-          "record_allegation",
-          "draft_complaint",
-          "send_to_review",
-          "transfer_to_human"
-        ],
-        "knowledge_base": [
-          "kb: public rule texts only, see ../kb/sources.md"
-        ]
-      },
       "first_message": "This is MoHRE's AI assistant. This call is recorded. I give information, not legal advice, and qualified staff make every decision. How can I help?",
       "language": "en",
-      "additional_languages": [
-        "ar",
-        "ur"
-      ]
+      "prompt": {
+        "prompt": "# Role\nYou are MoHRE's AI assistant for workers' rights questions. You give information from the worker's\nown records and the rule in force. You never give legal advice and never decide anything.\n\n# Hard limits\n- Never tell a worker to sign, not sign, resign or sue. Give the numbers and the rule; the choice is theirs.\n- Never contradict what a worker says happened. Records and the worker's account are both recorded, separately.\n- Never do arithmetic yourself; use tool results and read their \"say\" sentence.\n- Discuss only the worker and case verified on this call.\n- Do not apply private-sector rules to domestic workers or free-zone (DIFC/ADGM) employees.\n\n# Tools\nCall verify_session first. Use the tier from any check, or higher, when calling send_to_review.\nIf a tool returns ok=false, speak its \"say\" sentence and follow the workflow edge for that error.\n\n# Language\nReply in the caller's language (Arabic, English, Urdu; Hindi and Bangla evaluated). Read amounts and\nreferences back and confirm them.",
+        "llm": "gemini-2.5-flash",
+        "temperature": 0.2,
+        "ignore_default_personality": true,
+        "enable_parallel_tool_calls": true,
+        "tool_ids": [],
+        "knowledge_base": [
+          {
+            "type": "url",
+            "name": "UAE Government Labour Rights",
+            "id": "<UAE Government Labour Rights KB ID>",
+            "usage_mode": "auto"
+          },
+          {
+            "type": "url",
+            "name": "MoHRE Worker Rights Guidance",
+            "id": "<MoHRE Worker Rights Guidance KB ID>",
+            "usage_mode": "auto"
+          },
+          {
+            "type": "url",
+            "name": "EY WPS 2026 Summary - Secondary Source",
+            "id": "<EY WPS 2026 Summary - Secondary Source KB ID>",
+            "usage_mode": "auto"
+          },
+          {
+            "type": "url",
+            "name": "Gulf News WPS Exemptions 2026 - Secondary Source",
+            "id": "<Gulf News WPS Exemptions 2026 - Secondary Source KB ID>",
+            "usage_mode": "auto"
+          }
+        ],
+        "rag": {
+          "enabled": true,
+          "embedding_model": "e5_mistral_7b_instruct",
+          "include_source_urls": false,
+          "max_documents_length": 50000,
+          "max_retrieved_rag_chunks_count": 8,
+          "max_vector_distance": 0.6
+        },
+        "built_in_tools": {
+          "language_detection": {
+            "assignments": [],
+            "description": "",
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "interruption_mode": "allow",
+            "name": "language_detection",
+            "params": {
+              "only_at_conversation_start": false,
+              "system_tool_type": "language_detection"
+            },
+            "pre_tool_speech": "auto",
+            "response_timeout_secs": 20,
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "type": "system"
+          }
+        }
+      }
     },
     "asr": {
-      "provider": "elevenlabs",
-      "model": "scribe_v2_realtime",
-      "keyterms_file": "../keyterms.txt"
-    },
-    "tts": {
-      "model": "eleven_v3",
-      "voice_notes": "one voice per language, see ../voices.md",
-      "speed_for_numbers": "slower"
+      "provider": "scribe_realtime",
+      "quality": "high",
+      "keywords": [
+        "WPS",
+        "Wage Protection System",
+        "gratuity",
+        "end of service",
+        "80084",
+        "Tawasul",
+        "MoHRE",
+        "LAB",
+        "WRK",
+        "تنخواہ",
+        "کٹوتی",
+        "راتب",
+        "مكافأة نهاية الخدمة",
+        "حماية الأجور"
+      ],
+      "user_input_audio_format": "pcm_16000"
     },
     "conversation": {
-      "max_duration_seconds": 900
+      "client_events": [
+        "audio",
+        "interruption"
+      ],
+      "max_duration_seconds": 900,
+      "text_only": false
+    },
+    "language_presets": {
+      "ar": {
+        "first_message_translation": {
+          "source_hash": "{\"firstMessage\":\"This is MoHRE's AI assistant. This call is recorded. I give information, not legal advice, and qualified staff make every decision. How can I help?\",\"language\":\"en\"}",
+          "text": "هذا هو المساعد الذكي لوزارة الموارد البشرية والتوطين. يتم تسجيل هذه المكالمة. أقدّم المعلومات ولا أقدّم استشارات قانونية، ويتخذ الموظفون المؤهلون جميع القرارات. كيف يمكنني مساعدتك؟"
+        },
+        "overrides": {
+          "agent": {
+            "first_message": "هذا هو المساعد الذكي لوزارة الموارد البشرية والتوطين. يتم تسجيل هذه المكالمة. أقدّم المعلومات ولا أقدّم استشارات قانونية، ويتخذ الموظفون المؤهلون جميع القرارات. كيف يمكنني مساعدتك؟",
+            "language": null,
+            "max_conversation_duration_message": null,
+            "prompt": null
+          },
+          "asr": null,
+          "conversation": null,
+          "tts": null,
+          "turn": null
+        },
+        "soft_timeout_translation": null
+      },
+      "ur": {
+        "first_message_translation": {
+          "source_hash": "{\"firstMessage\":\"This is MoHRE's AI assistant. This call is recorded. I give information, not legal advice, and qualified staff make every decision. How can I help?\",\"language\":\"en\"}",
+          "text": "یہ MoHRE کا مصنوعی ذہانت کا معاون ہے۔ یہ کال ریکارڈ کی جا رہی ہے۔ میں معلومات فراہم کرتا ہوں، قانونی مشورہ نہیں، اور ہر فیصلہ اہل عملہ کرتا ہے۔ میں آپ کی کیسے مدد کر سکتا ہوں؟"
+        },
+        "overrides": {
+          "agent": {
+            "first_message": "یہ MoHRE کا مصنوعی ذہانت کا معاون ہے۔ یہ کال ریکارڈ کی جا رہی ہے۔ میں معلومات فراہم کرتا ہوں، قانونی مشورہ نہیں، اور ہر فیصلہ اہل عملہ کرتا ہے۔ میں آپ کی کیسے مدد کر سکتا ہوں؟",
+            "language": null,
+            "max_conversation_duration_message": null,
+            "prompt": null
+          },
+          "asr": null,
+          "conversation": null,
+          "tts": null,
+          "turn": null
+        },
+        "soft_timeout_translation": null
+      }
+    },
+    "tts": {
+      "agent_output_audio_format": "pcm_16000",
+      "model_id": "eleven_v3_conversational",
+      "optimize_streaming_latency": 3,
+      "similarity_boost": 0.8,
+      "speed": 1.0,
+      "stability": 0.5,
+      "voice_id": "cjVigY5qzO86Huf0OWal"
+    },
+    "turn": {
+      "mode": "turn",
+      "silence_end_call_timeout": -1.0,
+      "speculative_turn": true,
+      "turn_eagerness": "normal",
+      "turn_model": "turn_v3",
+      "turn_timeout": 7.0
     }
   },
-  "workflow_notes": "Five nodes with per-node tool scoping; must mirror app/registry.py NODE_TOOLS. See ../workflow.md.",
   "platform_settings": {
-    "post_call_webhook": {
-      "url": "https://<control-plane-host>/webhooks/elevenlabs/post-call",
-      "auth": "HMAC secret in workspace settings"
+    "overrides": {
+      "conversation_config_override": {
+        "agent": {
+          "language": true
+        },
+        "conversation": {
+          "text_only": true
+        }
+      }
+    },
+    "privacy": {
+      "apply_to_existing_conversations": false,
+      "conversation_history_redaction": {
+        "enabled": false,
+        "entities": []
+      },
+      "delete_audio": false,
+      "delete_transcript_and_pii": false,
+      "nested_history_redaction": false,
+      "record_voice": true,
+      "retention_days": -1,
+      "user_memory": {
+        "enabled": false,
+        "scale": "balanced"
+      },
+      "zero_retention_mode": false
+    },
+    "workspace_overrides": {
+      "webhooks": {
+        "events": [
+          "transcript"
+        ],
+        "post_call_webhook_id": "<POST_CALL_WEBHOOK_ID>",
+        "send_audio": false,
+        "transcript_format": "json"
+      }
     }
+  },
+  "tags": [
+    "rbe",
+    "mohre",
+    "worker-rights"
+  ],
+  "workflow": {
+    "edges": {
+      "edge_start_disclosure": {
+        "source": "start_node",
+        "target": "disclosure",
+        "forward_condition": {
+          "type": "unconditional",
+          "label": null
+        },
+        "backward_condition": null
+      },
+      "edge_disclosure_verify": {
+        "source": "disclosure",
+        "target": "verify",
+        "forward_condition": {
+          "type": "unconditional",
+          "label": null
+        },
+        "backward_condition": null
+      },
+      "edge_verify_locked_end": {
+        "source": "verify",
+        "target": "end_node",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Verification locked",
+          "condition": "verify_session returned verification_locked and the returned closing message has been explained to the caller."
+        },
+        "backward_condition": null
+      },
+      "edge_verify_wage": {
+        "source": "verify",
+        "target": "wage_wps",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Wage / WPS",
+          "condition": "verify_session returned ok=true and the caller's request concerns wages, salary amount, deductions, WPS records, or payment timing."
+        },
+        "backward_condition": {
+          "type": "llm",
+          "label": "Session not verified",
+          "condition": "A tool returned session_not_verified."
+        }
+      },
+      "edge_verify_entitlement": {
+        "source": "verify",
+        "target": "entitlement",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Entitlement / Settlement",
+          "condition": "verify_session returned ok=true and the caller's request concerns settlement, gratuity, or entitlement information."
+        },
+        "backward_condition": {
+          "type": "llm",
+          "label": "Session not verified",
+          "condition": "A tool returned session_not_verified."
+        }
+      },
+      "edge_wage_evidence": {
+        "source": "wage_wps",
+        "target": "evidence_case",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Evidence / review required",
+          "condition": "The wage or WPS issue has a discrepancy, is ambiguous, or the caller wants to record the issue, prepare a complaint, or proceed to specialist review."
+        },
+        "backward_condition": null
+      },
+      "edge_wage_end": {
+        "source": "wage_wps",
+        "target": "end_node",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Wage issue complete",
+          "condition": "The wage or WPS issue is clear, the requested information has been provided, and no evidence, complaint preparation, or specialist review is required."
+        },
+        "backward_condition": null
+      },
+      "edge_entitlement_evidence": {
+        "source": "entitlement",
+        "target": "evidence_case",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Evidence / review required",
+          "condition": "The entitlement or settlement matter needs evidence handling, complaint preparation, or specialist review."
+        },
+        "backward_condition": null
+      },
+      "edge_entitlement_end": {
+        "source": "entitlement",
+        "target": "end_node",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Entitlement issue complete",
+          "condition": "The requested settlement or entitlement information has been provided and no evidence, complaint preparation, or specialist review is required."
+        },
+        "backward_condition": null
+      },
+      "edge_evidence_verify": {
+        "source": "evidence_case",
+        "target": "verify",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Session not verified",
+          "condition": "A tool returned session_not_verified."
+        },
+        "backward_condition": null
+      },
+      "edge_evidence_end": {
+        "source": "evidence_case",
+        "target": "end_node",
+        "forward_condition": {
+          "type": "llm",
+          "label": "Case handling complete",
+          "condition": "The requested evidence or case handling is complete, including any required complaint confirmation and submission for review."
+        },
+        "backward_condition": null
+      }
+    },
+    "nodes": {
+      "start_node": {
+        "type": "start",
+        "position": {
+          "x": 0,
+          "y": -200
+        },
+        "edge_order": [],
+        "parent_subgraph_id": null
+      },
+      "disclosure": {
+        "type": "override_agent",
+        "label": "Disclosure",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "edge_order": [],
+        "parent_subgraph_id": null,
+        "conversation_config": {
+          "agent": {
+            "prompt": {
+              "prompt": null,
+              "llm": null,
+              "built_in_tools": {}
+            }
+          },
+          "tts": {
+            "voice_id": null
+          },
+          "turn": {
+            "turn_eagerness": null,
+            "spelling_patience": null,
+            "speculative_turn": null,
+            "retranscribe_on_turn_timeout": null
+          },
+          "conversation": {
+            "client_events": null
+          }
+        },
+        "additional_prompt": "Tell the caller that you are an AI assistant, the call is recorded, the information provided is not legal advice, and qualified staff make binding decisions. Do not use tools or request worker-specific information in this node. After providing the disclosure, proceed to verification.",
+        "additional_knowledge_base": [],
+        "additional_tool_ids": []
+      },
+      "verify": {
+        "type": "override_agent",
+        "label": "Verify",
+        "position": {
+          "x": 0,
+          "y": 220
+        },
+        "edge_order": [],
+        "parent_subgraph_id": null,
+        "conversation_config": {
+          "agent": {
+            "prompt": {
+              "prompt": null,
+              "llm": null,
+              "built_in_tools": {}
+            }
+          },
+          "tts": {
+            "voice_id": null
+          },
+          "turn": {
+            "turn_eagerness": null,
+            "spelling_patience": null,
+            "speculative_turn": null,
+            "retranscribe_on_turn_timeout": null
+          },
+          "conversation": {
+            "client_events": null
+          }
+        },
+        "additional_prompt": "Collect the worker ID, case reference, and one-time code and read back the required details. Never ask for conversation_id; the platform supplies it automatically. Call verify_session. Follow the authoritative result returned by the backend. If verification_failed is returned, explain the returned message and remain in this node so the caller can retry. Do not count verification attempts yourself. The backend tracks attempts and determines when verification is locked. If verification_locked is returned, explain the returned closing message and end the conversation. If already_verified is returned for another case, explain that a second case requires a new call. Never bypass verification or treat failed verification as successful. After verification succeeds, route wage, salary, deductions, WPS, or payment-timing requests to Wage / WPS; route settlement, gratuity, or entitlement requests to Entitlement. If the caller asks for a human or wants to stop, use transfer_to_human.",
+        "additional_knowledge_base": [],
+        "additional_tool_ids": [
+          "<verify_session_tool_id>",
+          "<transfer_to_human_tool_id>"
+        ]
+      },
+      "wage_wps": {
+        "type": "override_agent",
+        "label": "Wage / WPS",
+        "position": {
+          "x": -320,
+          "y": 480
+        },
+        "edge_order": [],
+        "parent_subgraph_id": null,
+        "conversation_config": {
+          "agent": {
+            "prompt": {
+              "prompt": null,
+              "llm": null,
+              "built_in_tools": {}
+            }
+          },
+          "tts": {
+            "voice_id": null
+          },
+          "turn": {
+            "turn_eagerness": null,
+            "spelling_patience": null,
+            "speculative_turn": null,
+            "retranscribe_on_turn_timeout": null
+          },
+          "conversation": {
+            "client_events": null
+          }
+        },
+        "additional_prompt": "Handle pay amount, deductions, WPS records, and payment timing. Use check_wage for authoritative wage checks and check_payment_timing for payment-timing checks. Never perform arithmetic or determine the result yourself; explain the authoritative tool result. Keep official records and worker allegations separate. Use record_allegation when the worker disputes an official record. If session_not_verified is returned, return to Verify. If case_scope_violation is returned, speak the refusal and stay on the current case. If invalid_period is returned, ask which month or period the caller means and retry after clarification. If dependency_unavailable is returned, make no conclusion and offer live human transfer or a callback only with consent. If the caller asks for a human or wants to stop, use transfer_to_human.",
+        "additional_knowledge_base": [],
+        "additional_tool_ids": [
+          "<check_wage_tool_id>",
+          "<check_payment_timing_tool_id>",
+          "<record_allegation_tool_id>",
+          "<transfer_to_human_tool_id>"
+        ]
+      },
+      "entitlement": {
+        "type": "override_agent",
+        "label": "Entitlement",
+        "position": {
+          "x": 320,
+          "y": 480
+        },
+        "edge_order": [],
+        "parent_subgraph_id": null,
+        "conversation_config": {
+          "agent": {
+            "prompt": {
+              "prompt": null,
+              "llm": null,
+              "built_in_tools": {}
+            }
+          },
+          "tts": {
+            "voice_id": null
+          },
+          "turn": {
+            "turn_eagerness": null,
+            "spelling_patience": null,
+            "speculative_turn": null,
+            "retranscribe_on_turn_timeout": null
+          },
+          "conversation": {
+            "client_events": null
+          }
+        },
+        "additional_prompt": "Handle settlement, gratuity, and entitlement questions before signing. Use check_settlement for authoritative checks. Never perform entitlement arithmetic yourself. Explain the authoritative tool result. If the caller asks whether they should sign, provide facts only and do not tell them to sign or not sign. If session_not_verified is returned, return to Verify. If case_scope_violation is returned, speak the refusal and stay on the current case. If dependency_unavailable is returned, make no conclusion and offer live human transfer or a callback only with consent. If the caller asks for a human or wants to stop, use transfer_to_human.",
+        "additional_knowledge_base": [],
+        "additional_tool_ids": [
+          "<check_settlement_tool_id>",
+          "<transfer_to_human_tool_id>"
+        ]
+      },
+      "evidence_case": {
+        "type": "override_agent",
+        "label": "Evidence / Case",
+        "position": {
+          "x": 0,
+          "y": 740
+        },
+        "edge_order": [],
+        "parent_subgraph_id": null,
+        "conversation_config": {
+          "agent": {
+            "prompt": {
+              "prompt": null,
+              "llm": null,
+              "built_in_tools": {}
+            }
+          },
+          "tts": {
+            "voice_id": null
+          },
+          "turn": {
+            "turn_eagerness": null,
+            "spelling_patience": null,
+            "speculative_turn": null,
+            "retranscribe_on_turn_timeout": null
+          },
+          "conversation": {
+            "client_events": null
+          }
+        },
+        "additional_prompt": "Handle evidence and case preparation. Keep official records and worker allegations separate. Use record_allegation when required. Use draft_complaint to prepare a draft for worker confirmation. Do not send an unconfirmed draft for review. If not_confirmed is returned, ask the worker to confirm first. After confirmation, use send_to_review when specialist review is required. Never lower an existing review tier. If invalid_tier is returned, transfer to a human. If session_not_verified is returned, return to Verify. If case_scope_violation is returned, speak the refusal and stay on the current case. If dependency_unavailable is returned, make no conclusion and offer live human transfer or a callback only with consent. If callback_without_consent is returned, ask for callback consent or offer live transfer. If the caller asks for a human or wants to stop, use transfer_to_human. Never make or communicate a binding decision.",
+        "additional_knowledge_base": [],
+        "additional_tool_ids": [
+          "<record_allegation_tool_id>",
+          "<draft_complaint_tool_id>",
+          "<send_to_review_tool_id>",
+          "<transfer_to_human_tool_id>"
+        ]
+      },
+      "end_node": {
+        "type": "end",
+        "position": {
+          "x": 0,
+          "y": 980
+        },
+        "edge_order": [],
+        "parent_subgraph_id": null,
+        "return_when_nested": true
+      }
+    },
+    "subgraphs": {},
+    "prevent_subagent_loops": false
   }
 }
