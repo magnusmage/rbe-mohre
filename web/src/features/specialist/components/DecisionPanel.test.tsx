@@ -7,11 +7,34 @@ import { DecisionPanel } from './DecisionPanel';
 
 const REVIEW_REF = 'RV-1790167201-0001';
 
+/** Backend-shaped response used when the panel refetches the case after a success. */
+function refetchBody(decision: string | null) {
+  return {
+    ok: true,
+    review: {
+      review_ref: REVIEW_REF,
+      case_ref: 'LAB-1001',
+      conversation_id: 'c1',
+      tier: 'tier_0_standard_review',
+      summary: 'Regression test',
+      decision,
+      decided_by: decision ? SPECIALIST.name : null,
+      decided_at: decision ? 1790200000 : null,
+      transcript_ready: true,
+    },
+    package: { allegations: [] },
+    allegations: [],
+    draft: null,
+    transcript: null,
+    audit: [],
+  };
+}
+
 const renderPanel = (props: Partial<React.ComponentProps<typeof DecisionPanel>> = {}, store = makeStore()) =>
-  renderWithProviders(<DecisionPanel reviewRef={REVIEW_REF} locked={false} {...props} />, {
-    store,
-    route: '/',
-  });
+  renderWithProviders(
+    <DecisionPanel reviewRef={REVIEW_REF} locked={false} recordedDecision={null} {...props} />,
+    { store, route: '/' },
+  );
 
 describe('DecisionPanel — validation', () => {
   it('does not prefill the note (dummy value removed)', async () => {
@@ -21,16 +44,11 @@ describe('DecisionPanel — validation', () => {
     expect(note.value).toBe('');
   });
 
-  it('keeps the confirm button disabled until a note is typed', async () => {
+  it('lets the specialist submit without typing a note', async () => {
     const { user } = renderPanel();
     await user.click(screen.getByRole('radio', { name: /open complaint/i }));
-
-    const confirm = screen.getByRole('button', { name: /confirm: open complaint/i });
-    expect(confirm).toBeDisabled();
-    expect(screen.getByText(/a note is required/i)).toBeInTheDocument();
-
-    await user.type(screen.getByLabelText(/note to record/i), 'Because reasons.');
-    expect(confirm).toBeEnabled();
+    // Note is empty — confirm should still be enabled.
+    expect(screen.getByRole('button', { name: /confirm: open complaint/i })).toBeEnabled();
   });
 
   it('locks the whole panel when the transcript is pending', () => {
@@ -41,50 +59,81 @@ describe('DecisionPanel — validation', () => {
   it('does not fire a request while the panel is locked', async () => {
     const { calls } = stubFetch({ body: { ok: true, decision: 'uphold_information' } });
     const { user } = renderPanel({ locked: true });
-
-    // Radios are disabled — user-event still lets us click, but the click is a no-op.
     await user.click(screen.getAllByRole('radio')[0]);
     expect(calls.length).toBe(0);
+  });
+
+  it('is fully disabled when a decision is already on record', () => {
+    renderPanel({ recordedDecision: 'open_complaint', decidedBy: 'Case Reviewer', decidedAt: '17:03:22' });
+    screen.getAllByRole('radio').forEach((r) => expect(r).toBeDisabled());
+    expect(screen.getByLabelText(/note to record/i)).toBeDisabled();
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent(/decision recorded/i);
+    expect(status).toHaveTextContent('Open complaint');
+    expect(status).toHaveTextContent('17:03:22');
+    // No submit button visible when already decided.
+    expect(screen.queryByRole('button', { name: /confirm:/i })).not.toBeInTheDocument();
   });
 });
 
 describe('DecisionPanel — successful submission', () => {
   it('POSTs the mapped decision + reviewer with the bearer token AND token in query', async () => {
-    const { calls } = stubFetch({ body: { ok: true, decision: 'open_complaint' } });
+    const { calls } = stubFetch([
+      { body: { ok: true, decision: 'open_complaint' } },
+      { body: refetchBody('open_complaint') },
+    ]);
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('radio', { name: /open complaint/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Filing complaint per FDL 33/2021.');
     await user.click(screen.getByRole('button', { name: /confirm: open complaint/i }));
 
-    await waitFor(() => expect(screen.getByText(/decision recorded/i)).toBeInTheDocument());
+    // Wait for POST + refetch to both fire.
+    await waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2));
 
-    expect(calls).toHaveLength(1);
+    // POST
     expect(calls[0].init?.method).toBe('POST');
     expect(calls[0].url).toBe(
       `http://api.test/review/${encodeURIComponent(REVIEW_REF)}/decision?token=test-reviewer-token`,
     );
     const headers = calls[0].init?.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer test-reviewer-token');
-
     const body = JSON.parse(calls[0].init?.body as string);
     expect(body).toEqual({ decision: 'open_complaint', reviewer: SPECIALIST.name });
+
+    // Refetch (GET /review/{ref})
+    expect(calls[1].init?.method).toBe('GET');
+    expect(calls[1].url).toBe(`http://api.test/review/${encodeURIComponent(REVIEW_REF)}`);
   });
 
-  it('shows the recorded decision and locks the radios after success', async () => {
-    stubFetch({ body: { ok: true, decision: 'uphold_information' } });
-    const { user } = renderPanel();
+  it('POSTs the exact decision code for every option', async () => {
+    // uphold → uphold_information
+    let scenario = stubFetch([
+      { body: { ok: true, decision: 'uphold_information' } },
+      { body: refetchBody('uphold_information') },
+    ]);
+    let ctx = renderPanel();
+    await ctx.user.click(screen.getByRole('radio', { name: /uphold information/i }));
+    await ctx.user.click(screen.getByRole('button', { name: /confirm: uphold information/i }));
+    await waitFor(() => expect(scenario.calls.length).toBeGreaterThanOrEqual(1));
+    expect(JSON.parse(scenario.calls[0].init?.body as string).decision).toBe('uphold_information');
 
-    await user.click(screen.getByRole('radio', { name: /uphold information/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Facts on record are correct.');
-    await user.click(screen.getByRole('button', { name: /confirm: uphold information/i }));
+    // refer → refer
+    scenario = stubFetch([{ body: { ok: true, decision: 'refer' } }, { body: refetchBody('refer') }]);
+    ctx.unmount();
+    ctx = renderPanel();
+    await ctx.user.click(screen.getByRole('radio', { name: /refer/i }));
+    await ctx.user.click(screen.getByRole('button', { name: /confirm: refer/i }));
+    await waitFor(() => expect(scenario.calls.length).toBeGreaterThanOrEqual(1));
+    expect(JSON.parse(scenario.calls[0].init?.body as string).decision).toBe('refer');
 
-    await waitFor(() =>
-      expect(screen.getByText(/decision recorded/i)).toHaveTextContent('Uphold information'),
-    );
-    // Note textarea removed once recorded.
-    expect(screen.queryByLabelText(/note to record/i)).not.toBeInTheDocument();
-    screen.getAllByRole('radio').forEach((r) => expect(r).toBeDisabled());
+    // more → request_more
+    scenario = stubFetch([{ body: { ok: true, decision: 'request_more' } }, { body: refetchBody('request_more') }]);
+    ctx.unmount();
+    ctx = renderPanel();
+    await ctx.user.click(screen.getByRole('radio', { name: /04\s+request more/i }));
+    await ctx.user.click(screen.getByRole('button', { name: /confirm: request more evidence/i }));
+    await waitFor(() => expect(scenario.calls.length).toBeGreaterThanOrEqual(1));
+    expect(JSON.parse(scenario.calls[0].init?.body as string).decision).toBe('request_more');
   });
 });
 
@@ -94,12 +143,10 @@ describe('DecisionPanel — failed submission', () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('radio', { name: /refer/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Out of scope.');
     await user.click(screen.getByRole('button', { name: /confirm: refer/i }));
 
     expect(await screen.findByText(/couldn't record decision/i)).toBeInTheDocument();
     expect(screen.getByText(/couldn't reach the review service/i)).toBeInTheDocument();
-    // Form still editable so the user can retry.
     expect(screen.getByLabelText(/note to record/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirm: refer/i })).toBeEnabled();
   });
@@ -109,7 +156,6 @@ describe('DecisionPanel — failed submission', () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('radio', { name: /uphold information/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Facts on record are correct.');
     await user.click(screen.getByRole('button', { name: /confirm: uphold information/i }));
 
     expect(await screen.findByText(/waiting on the verified transcript/i)).toBeInTheDocument();
@@ -120,7 +166,6 @@ describe('DecisionPanel — failed submission', () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('radio', { name: /uphold information/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Facts on record are correct.');
     await user.click(screen.getByRole('button', { name: /confirm: uphold information/i }));
 
     expect(await screen.findByText(/decision has already been recorded/i)).toBeInTheDocument();
@@ -133,14 +178,12 @@ describe('DecisionPanel — loading state', () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('radio', { name: /uphold information/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Facts on record are correct.');
     await user.click(screen.getByRole('button', { name: /confirm: uphold information/i }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: /recording…/i })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /recording…/i })).toBeDisabled();
     expect(screen.getByLabelText(/note to record/i)).toBeDisabled();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
-    // Radios also locked while submitting.
     screen.getAllByRole('radio').forEach((r) => expect(r).toBeDisabled());
   });
 
@@ -149,13 +192,24 @@ describe('DecisionPanel — loading state', () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('radio', { name: /uphold information/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Facts on record are correct.');
     const confirm = screen.getByRole('button', { name: /confirm: uphold information/i });
     await user.click(confirm);
-
-    // The button switches to "Recording…" and is disabled; user-event won't fire a
-    // second click on a disabled button, so the assertion is: still only one call.
+    // Button is now "Recording…" and disabled — attempting to click again is a no-op.
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe('DecisionPanel — post-record state', () => {
+  it('keeps the note field visible after a decision is recorded', () => {
+    renderPanel({ recordedDecision: 'open_complaint' });
+    expect(screen.getByLabelText(/note to record/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/note to record/i)).toBeDisabled();
+  });
+
+  it('highlights the recorded decision in the radio group', () => {
+    renderPanel({ recordedDecision: 'refer' });
+    const refer = screen.getByRole('radio', { name: /refer/i });
+    expect(refer).toHaveAttribute('aria-checked', 'true');
   });
 });
 
@@ -165,9 +219,7 @@ describe('DecisionPanel — Cancel', () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('radio', { name: /refer/i }));
-    await user.type(screen.getByLabelText(/note to record/i), 'Out of scope.');
     await user.click(screen.getByRole('button', { name: /confirm: refer/i }));
-
     await screen.findByText(/couldn't record decision/i);
 
     await user.click(screen.getByRole('button', { name: /cancel/i }));

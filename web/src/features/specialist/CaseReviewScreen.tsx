@@ -96,7 +96,13 @@ export function CaseReviewScreen() {
     <>
       <main className="min-w-0 px-4 py-5 md:px-6">
         <CaseHeader detail={detail} />
-        <TranscriptStatusBanner pending={detail.transcriptPending} storedAt={detail.transcriptStoredAt} />
+        <TranscriptStatusBanner
+          pending={detail.transcriptPending}
+          storedAt={detail.transcriptStoredAt}
+          decision={detail.decision}
+          decidedAt={detail.decidedAt}
+          decidedBy={detail.decidedBy}
+        />
 
         <div className="mb-4 grid gap-3.5 md:grid-cols-2">
           <VerifiedFactsCard findings={verifiedFindings} rule={rule} />
@@ -115,6 +121,9 @@ export function CaseReviewScreen() {
           key={detail.reviewRef}
           reviewRef={detail.reviewRef}
           locked={detail.transcriptPending}
+          recordedDecision={detail.decision}
+          decidedBy={detail.decidedBy}
+          decidedAt={detail.decidedAt}
         />
       </main>
       <CaseSidePanel

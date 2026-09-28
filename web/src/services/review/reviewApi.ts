@@ -401,6 +401,9 @@ export function toCaseView(response: ReviewCaseResponse): CaseView {
     transcriptStoredAt: storedAt ? formatClock(storedAt) : '',
     draftRef: response.draft?.draft_ref ?? '—',
     draftConfirmedAt: confirmedAt ? formatClock(confirmedAt) : '',
+    decision: response.review.decision ?? null,
+    decidedBy: response.review.decided_by ?? null,
+    decidedAt: response.review.decided_at ? formatClock(response.review.decided_at) : '',
   };
 
   return {

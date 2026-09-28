@@ -192,6 +192,30 @@ describe('CaseReviewScreen — data loading', () => {
     const banners = screen.getAllByRole('status');
     expect(banners.some((b) => /ready to decide/i.test(b.textContent ?? ''))).toBe(true);
   });
+
+  it('swaps the banner to "Decision recorded" once a decision is on record', async () => {
+    stubFetch({
+      body: makeCaseResponse({
+        review: {
+          ...makeCaseResponse().review,
+          transcript_ready: true,
+          decision: 'uphold_information',
+          decided_by: 'Case Reviewer',
+          decided_at: 1790200000,
+        },
+      }),
+    });
+    renderCase();
+    await screen.findByRole('heading', { level: 1 });
+
+    const banners = screen.getAllByRole('status');
+    expect(banners.some((b) => /decision recorded/i.test(b.textContent ?? ''))).toBe(true);
+    expect(
+      banners.some((b) => /uphold information/i.test(b.textContent ?? '')),
+    ).toBe(true);
+    // Ready-to-decide banner is gone.
+    expect(banners.some((b) => /ready to decide/i.test(b.textContent ?? ''))).toBe(false);
+  });
 });
 
 describe('CaseReviewScreen — empty states', () => {
@@ -249,9 +273,11 @@ describe('CaseReviewScreen — error paths', () => {
 
 describe('CaseReviewScreen — navigation between cases', () => {
   it('fetches the URL case on refresh (no default override)', async () => {
-    const { calls } = stubFetch({ body: makeCaseResponse({
-      review: { ...makeCaseResponse().review, review_ref: SECOND_REF, summary: 'Deep-linked case' },
-    }) });
+    const { calls } = stubFetch({
+      body: makeCaseResponse({
+        review: { ...makeCaseResponse().review, review_ref: SECOND_REF, summary: 'Deep-linked case' },
+      })
+    });
 
     renderWithProviders(<CaseReviewScreen />, {
       route: `${ROUTES.specialist}/${SECOND_REF}`,

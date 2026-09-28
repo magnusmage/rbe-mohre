@@ -28,12 +28,12 @@ describe('TopBar', () => {
 
   it('hides the specialist identity on caller screens', () => {
     renderTopBar();
-    expect(screen.queryByText('Fatima Al Marri')).not.toBeInTheDocument();
+    expect(screen.queryByText('Case Reviewer')).not.toBeInTheDocument();
   });
 
   it('shows the specialist identity on review screens', () => {
     renderTopBar(`${ROUTES.specialist}/RV-2409-0031`);
-    expect(screen.getByText('Fatima Al Marri')).toBeInTheDocument();
+    expect(screen.getByText('Case Reviewer')).toBeInTheDocument();
     expect(screen.getByText(/tier 2 cleared/i)).toBeInTheDocument();
   });
 });

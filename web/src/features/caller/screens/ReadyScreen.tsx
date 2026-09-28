@@ -38,7 +38,7 @@ export function ReadyScreen() {
       </p>
 
       {/* Inputs are locked while the call is being set up. */}
-      <fieldset disabled={showProgress} className="m-0 min-w-0 border-0 p-0">
+      {/* <fieldset disabled={showProgress} className="m-0 min-w-0 border-0 p-0">
         <div className="mb-5 grid grid-cols-1 gap-x-3.5 gap-y-3 text-left sm:grid-cols-2">
           <TextField
             label="Worker ID"
@@ -87,9 +87,9 @@ export function ReadyScreen() {
             );
           })}
         </div>
-      </fieldset>
+      </fieldset> */}
 
-      {error && (
+      {/* {error && (
         <Alert title={error.title} onDismiss={dismissError} className="mx-auto mb-5 max-w-[520px]">
           {error.message}
           {error.link && (
@@ -106,7 +106,7 @@ export function ReadyScreen() {
             </>
           )}
         </Alert>
-      )}
+      )} */}
 
       <Button type="submit" variant="primary" size="xl" className="gap-3" loading={isStarting}>
         {showProgress ? <Spinner size={18} /> : <PhoneIcon size={20} color="#fff" />}

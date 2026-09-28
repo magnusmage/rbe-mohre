@@ -101,8 +101,7 @@ export function CallEndedScreen() {
               <NextSteps />
 
               <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                <Button variant="dark">Track my case</Button>
-                <Button variant="secondary">Download transcript (PDF)</Button>
+                <Button variant="dark">Download transcript (PDF)</Button>
                 <Button variant="secondary" onClick={() => navigate(ROUTES.callerReady)}>
                   New call
                 </Button>

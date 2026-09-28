@@ -171,7 +171,14 @@ const caseSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchReviewCase.pending, (state, action) => {
-        state.status = 'loading';
+        // Silent refresh: if we already have this case loaded, keep the
+        // succeeded state and existing data visible while the request runs
+        // in the background. Prevents the screen from blanking on refetch
+        // (e.g. after a decision is recorded).
+        const isRefresh = state.data?.reviewRef === action.meta.arg;
+        if (!isRefresh) {
+          state.status = 'loading';
+        }
         state.currentRef = action.meta.arg;
         state.error = null;
         // Reset the submission whenever a different case starts loading,

@@ -68,4 +68,13 @@ export interface CaseDetail {
   transcriptStoredAt: string;
   draftRef: string;
   draftConfirmedAt: string;
+  /**
+   * Decision recorded by the specialist, once one has been. `null` until then.
+   * Values match the backend registry (`uphold_information`, `open_complaint`,
+   * `refer`, `request_more`).
+   */
+  decision: string | null;
+  decidedBy: string | null;
+  /** Local timestamp string, or empty if not yet decided. */
+  decidedAt: string;
 }

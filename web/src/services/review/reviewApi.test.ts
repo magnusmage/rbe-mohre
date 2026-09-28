@@ -324,6 +324,24 @@ describe('toCaseView', () => {
     expect(view.rule).toBeNull();
     expect(view.verifiedFindings).toEqual([]);
     expect(view.caseHistory).toEqual([]);
+    expect(view.detail.decision).toBeNull();
+    expect(view.detail.decidedBy).toBeNull();
+    expect(view.detail.decidedAt).toBe('');
+  });
+
+  it('surfaces a recorded decision on the case detail', () => {
+    const view = toCaseView({
+      ...CASE_FIXTURE,
+      review: {
+        ...CASE_FIXTURE.review,
+        decision: 'uphold_information',
+        decided_by: 'Case Reviewer',
+        decided_at: 1790200000,
+      },
+    });
+    expect(view.detail.decision).toBe('uphold_information');
+    expect(view.detail.decidedBy).toBe('Case Reviewer');
+    expect(view.detail.decidedAt).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   });
 });
 
@@ -371,7 +389,7 @@ describe('DECISION_CODE', () => {
 
 describe('postReviewDecision', () => {
   const REF = 'RV-1';
-  const body = { decision: 'uphold_information', reviewer: 'Fatima Al Marri' };
+  const body = { decision: 'uphold_information', reviewer: 'Case Reviewer' };
 
   it('POSTs the decision + reviewer with the bearer token and token query param', async () => {
     const { calls } = stubFetch({ body: { ok: true, decision: 'uphold_information' } });
