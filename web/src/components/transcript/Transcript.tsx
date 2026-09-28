@@ -14,10 +14,15 @@ interface TranscriptListProps {
   /** Show the tool chip next to agent turns that invoked a tool. */
   showTools?: boolean;
   density?: 'comfortable' | 'compact';
+  /** Rendered when `entries` is empty; omitted when nothing should show. */
+  emptyMessage?: string;
 }
 
-export function TranscriptList({ entries, showTools = false, density = 'comfortable' }: TranscriptListProps) {
+export function TranscriptList({ entries, showTools = false, density = 'comfortable', emptyMessage }: TranscriptListProps) {
   const compact = density === 'compact';
+  if (entries.length === 0 && emptyMessage) {
+    return <p className="text-[13px] italic text-muted">{emptyMessage}</p>;
+  }
   return (
     <ol className="flex flex-col gap-3.5">
       {entries.map((entry, i) => (

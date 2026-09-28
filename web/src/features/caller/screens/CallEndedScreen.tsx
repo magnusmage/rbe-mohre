@@ -3,11 +3,12 @@ import { ROUTES } from '@/app/routes';
 import { CheckIcon, CopyIcon } from '@/components/icons';
 import { TranscriptPanel } from '@/components/transcript/Transcript';
 import { Badge, Button, LabeledValue, Orb, SectionLabel } from '@/components/ui';
-import { SESSION, TRANSCRIPT } from '@/data/mock';
+import { SESSION } from '@/data/mock';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { formatDuration } from '@/lib/time';
+import { downloadTextFile, formatTranscriptAsText } from '@/lib/transcript';
 import { useAppSelector } from '@/store/hooks';
-import { selectCallDurationSeconds } from '../state/callSessionSlice';
+import { selectCallDurationSeconds, selectCallTranscript } from '../state/callSessionSlice';
 import { BackButton } from '../components/BackButton';
 import { TwoColumnLayout } from '../components/TwoColumnLayout';
 
@@ -75,8 +76,17 @@ function NextSteps() {
 export function CallEndedScreen() {
   const navigate = useNavigate();
   const durationSeconds = useAppSelector(selectCallDurationSeconds);
+  const transcript = useAppSelector(selectCallTranscript);
   // Falls back to the sample duration when this screen is opened without a finished call.
   const duration = durationSeconds === null ? SESSION.callDuration : formatDuration(durationSeconds);
+  const hasTranscript = transcript.length > 0;
+
+  const handleDownloadTranscript = () => {
+    downloadTextFile({
+      name: `transcript-${SESSION.reviewRef}.txt`,
+      contents: formatTranscriptAsText(transcript),
+    });
+  };
 
   return (
     <>
@@ -101,7 +111,9 @@ export function CallEndedScreen() {
               <NextSteps />
 
               <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                <Button variant="dark">Download transcript (PDF)</Button>
+                <Button variant="dark" onClick={handleDownloadTranscript} disabled={!hasTranscript}>
+                  Download transcript
+                </Button>
                 <Button variant="secondary" onClick={() => navigate(ROUTES.callerReady)}>
                   New call
                 </Button>
@@ -127,7 +139,8 @@ export function CallEndedScreen() {
                 HMAC OK
               </Badge>
             }
-            entries={TRANSCRIPT}
+            entries={transcript}
+            emptyMessage="No transcript was captured for this call."
             className="max-h-[720px]"
           />
         }

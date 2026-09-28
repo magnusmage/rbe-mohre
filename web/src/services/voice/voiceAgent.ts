@@ -1,7 +1,16 @@
-import type { DisconnectionDetails, VoiceConversation } from '@elevenlabs/client';
+import type { DisconnectionDetails, Role, VoiceConversation } from '@elevenlabs/client';
 
 export type AgentMode = 'speaking' | 'listening';
 export type AgentConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'disconnecting';
+
+/**
+ * A finalised transcript turn from the SDK — the app maps `role` onto its own
+ * `Agent`/`Worker` speaker labels and stamps a wall-clock time on receipt.
+ */
+export interface TranscriptMessage {
+  role: Role;
+  message: string;
+}
 
 export interface VoiceAgentHandlers {
   onModeChange: (mode: AgentMode) => void;
@@ -10,6 +19,8 @@ export interface VoiceAgentHandlers {
   onError?: (message: string) => void;
   /** Underlying SDK connection status (connecting / connected / disconnecting / disconnected). */
   onStatusChange?: (status: AgentConnectionStatus) => void;
+  /** Finalised transcript turn (user or agent). */
+  onTranscriptMessage?: (message: TranscriptMessage) => void;
 }
 
 export class VoiceConnectionTimeoutError extends Error {
@@ -63,6 +74,11 @@ class VoiceAgentService {
       },
       onStatusChange: ({ status }) => {
         if (isCurrent()) handlers.onStatusChange?.(status);
+      },
+      onMessage: ({ message, role }) => {
+        // Only forward the final turn text; role tells us whether it came from the
+        // user (via ASR) or the agent, so the UI can label it consistently.
+        if (isCurrent() && message) handlers.onTranscriptMessage?.({ role, message });
       },
     }) as Promise<VoiceConversation>;
 
