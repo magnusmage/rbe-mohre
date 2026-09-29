@@ -1,4 +1,3 @@
-import { env } from '@/config/env';
 import { ApiError, apiGet, apiPost } from '@/services/http/apiClient';
 import type { AuditEntry, AuditResult, CaseDetail, CaseHistoryEntry, Tier, TranscriptEntry } from '@/types';
 
@@ -75,25 +74,11 @@ export function toQueueCase(item: ReviewQueueItemDto, now: number = Date.now()):
   };
 }
 
-/** Missing token is a build-time misconfiguration; surface it as an ApiError. */
-function reviewerAuthHeader(): Record<string, string> {
-  const token = env.reviewerToken;
-  if (!token) {
-    throw new ApiError(
-      'http',
-      'Reviewer token is not configured. Set VITE_REVIEWER_TOKEN in the environment.',
-      401,
-    );
-  }
-  return { Authorization: `Bearer ${token}` };
-}
-
 /** `GET /review/queue`: open review items ordered by tier then time. */
 export async function getReviewQueue(signal?: AbortSignal): Promise<QueueCase[]> {
-  const data = await apiGet<ReviewQueueResponse>('/review/queue', {
-    signal,
-    headers: reviewerAuthHeader(),
-  });
+  // Authorization is added by the reviewer-token request interceptor
+  // (services/http/apiClient.ts). Callers do not, and must not, pass the token.
+  const data = await apiGet<ReviewQueueResponse>('/review/queue', { signal });
 
   if (!data || !Array.isArray(data.items)) {
     throw new ApiError('parse', 'The review queue service returned an unexpected response.');
@@ -432,10 +417,7 @@ export async function getReviewCase(reviewRef: string, signal?: AbortSignal): Pr
   if (!reviewRef) {
     throw new ApiError('http', 'A review reference is required.', 400);
   }
-  const data = await apiGet<ReviewCaseResponse>(`/review/${encodeURIComponent(reviewRef)}`, {
-    signal,
-    headers: reviewerAuthHeader(),
-  });
+  const data = await apiGet<ReviewCaseResponse>(`/review/${encodeURIComponent(reviewRef)}`, { signal });
 
   if (!data || !data.ok || !data.review) {
     throw new ApiError('parse', 'The review service returned an unexpected response.');
@@ -470,9 +452,10 @@ export interface DecisionResponse {
 }
 
 /**
- * `POST /review/{review_ref}/decision`. The reviewer bearer token goes in the
- * Authorization header AND as a `token` query parameter, so operators who
- * proxy the API in ways that strip headers still see it.
+ * `POST /review/{review_ref}/decision`. Auth goes only in the Authorization
+ * header (attached by the interceptor). Passing the token as a URL query
+ * parameter would leak it into referrers, HTTP access logs, browser history
+ * and any proxy along the way, so it is deliberately not sent there.
  */
 export async function postReviewDecision(
   reviewRef: string,
@@ -489,15 +472,10 @@ export async function postReviewDecision(
     throw new ApiError('http', 'A reviewer identity is required.', 400);
   }
 
-  const token = env.reviewerToken;
-  const path = `/review/${encodeURIComponent(reviewRef)}/decision${
-    token ? `?token=${encodeURIComponent(token)}` : ''
-  }`;
-
   const data = await apiPost<DecisionResponse>(
-    path,
+    `/review/${encodeURIComponent(reviewRef)}/decision`,
     { decision: body.decision.trim(), reviewer: body.reviewer.trim() },
-    { signal, headers: reviewerAuthHeader() },
+    { signal },
   );
 
   if (!data || !data.ok) {

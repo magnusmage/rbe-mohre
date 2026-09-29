@@ -1,7 +1,15 @@
+import { useCallback, useRef, useState } from 'react';
 import { Link, NavLink, useMatch } from 'react-router-dom';
+import { ChevronDownIcon, LogOutIcon } from '@/components/icons';
 import { SPECIALIST } from '@/data/mock';
+import {
+  reviewerSignedOut,
+  selectIsReviewerSignedIn,
+} from '@/features/specialist/state/specialistAuthSlice';
+import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
 import { ROUTES } from '@/app/routes';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { LanguageMenu } from './LanguageMenu';
 
 const NAV_ITEMS = [
@@ -11,6 +19,8 @@ const NAV_ITEMS = [
 
 export function TopBar() {
   const isSpecialist = useMatch(`${ROUTES.specialist}/*`) !== null;
+  const isReviewerSignedIn = useAppSelector(selectIsReviewerSignedIn);
+  const dispatch = useAppDispatch();
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-3 whitespace-nowrap border-b border-line bg-white px-4 md:gap-6 md:px-6">
@@ -58,16 +68,94 @@ export function TopBar() {
       </div> */}
 
       {isSpecialist && (
-        <div className="flex h-8 items-center gap-2 border-l border-line pl-4">
-          <div className="grid size-7 place-items-center rounded-full bg-indigo text-xs font-semibold text-white">
-            {SPECIALIST.initials}
-          </div>
-          <div className="hidden text-[13px] md:block">
-            <div className="font-semibold leading-[1.1]">{SPECIALIST.name}</div>
-            <div className="text-[11.5px] text-muted">{SPECIALIST.role}</div>
-          </div>
+        <div className="flex h-8 items-center border-l border-line pl-4">
+          <SpecialistMenu
+            signedIn={isReviewerSignedIn}
+            onSignOut={() => dispatch(reviewerSignedOut())}
+          />
         </div>
       )}
     </header>
+  );
+}
+
+interface SpecialistMenuProps {
+  signedIn: boolean;
+  onSignOut: () => void;
+}
+
+/**
+ * Reviewer identity chip in the top bar. Acts as an inert label until the
+ * reviewer is signed in; once signed in, becomes a menu trigger whose only
+ * item today is Sign out. Follows the LanguageMenu pattern (aria-haspopup,
+ * outside-click / Escape via useDismiss) so keyboard and screen-reader
+ * behaviour stay consistent across the bar.
+ */
+function SpecialistMenu({ signedIn, onSignOut }: SpecialistMenuProps) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss(rootRef, open, close);
+
+  // When there's no session there's nothing to do inside the menu, so render
+  // the identity as static content rather than a control that opens an empty popup.
+  if (!signedIn) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="grid size-7 place-items-center rounded-full bg-indigo text-xs font-semibold text-white">
+          {SPECIALIST.initials}
+        </div>
+        <div className="hidden text-[13px] md:block">
+          <div className="font-semibold leading-[1.1]">{SPECIALIST.name}</div>
+          <div className="text-[11.5px] text-muted">{SPECIALIST.role}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Reviewer menu — ${SPECIALIST.name}`}
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 rounded-md pl-1 pr-1.5 py-1 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      >
+        <div className="grid size-7 place-items-center rounded-full bg-indigo text-xs font-semibold text-white">
+          {SPECIALIST.initials}
+        </div>
+        <div className="hidden text-left text-[13px] md:block">
+          <div className="font-semibold leading-[1.1]">{SPECIALIST.name}</div>
+          <div className="text-[11.5px] text-muted">{SPECIALIST.role}</div>
+        </div>
+        <ChevronDownIcon
+          size={12}
+          className={cn('text-muted transition-transform', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Reviewer menu"
+          className="absolute right-0 top-[42px] z-30 min-w-[200px] rounded-[10px] border border-line bg-white p-1 shadow-[0_8px_24px_-6px_rgba(20,32,43,.18)]"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              close();
+              onSignOut();
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13.5px] font-medium text-ink hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <LogOutIcon size={14} className="text-muted" />
+            <span>Sign out</span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

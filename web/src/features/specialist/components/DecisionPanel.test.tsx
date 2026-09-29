@@ -77,7 +77,7 @@ describe('DecisionPanel — validation', () => {
 });
 
 describe('DecisionPanel — successful submission', () => {
-  it('POSTs the mapped decision + reviewer with the bearer token AND token in query', async () => {
+  it('POSTs the mapped decision + reviewer with the bearer token in the header only', async () => {
     const { calls } = stubFetch([
       { body: { ok: true, decision: 'open_complaint' } },
       { body: refetchBody('open_complaint') },
@@ -92,9 +92,9 @@ describe('DecisionPanel — successful submission', () => {
 
     // POST
     expect(calls[0].init?.method).toBe('POST');
-    expect(calls[0].url).toBe(
-      `http://api.test/review/${encodeURIComponent(REVIEW_REF)}/decision?token=test-reviewer-token`,
-    );
+    // The reviewer token must NEVER be passed in the URL.
+    expect(calls[0].url).toBe(`http://api.test/review/${encodeURIComponent(REVIEW_REF)}/decision`);
+    expect(calls[0].url).not.toContain('token=');
     const headers = calls[0].init?.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer test-reviewer-token');
     const body = JSON.parse(calls[0].init?.body as string);
