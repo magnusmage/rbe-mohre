@@ -1,12 +1,12 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { LanguageProvider } from '@/context/LanguageContext';
-import { QUEUE } from '@/data/mock';
 import { CallerLayout } from '@/features/caller/CallerLayout';
 import { CallEndedScreen } from '@/features/caller/screens/CallEndedScreen';
 import { InCallScreen } from '@/features/caller/screens/InCallScreen';
 import { ReadyScreen } from '@/features/caller/screens/ReadyScreen';
 import { CaseReviewScreen } from '@/features/specialist/CaseReviewScreen';
+import { SpecialistIndex } from '@/features/specialist/SpecialistIndex';
 import { SpecialistLayout } from '@/features/specialist/SpecialistLayout';
 import { ROUTES } from './routes';
 
@@ -29,7 +29,8 @@ const router = createBrowserRouter([
         path: ROUTES.specialist,
         element: <SpecialistLayout />,
         children: [
-          { index: true, element: <Navigate to={`${ROUTES.specialist}/${QUEUE[0].ref}`} replace /> },
+          // First case in the loaded queue is picked by SpecialistIndex.
+          { index: true, element: <SpecialistIndex /> },
           { path: ':caseRef', element: <CaseReviewScreen /> },
         ],
       },

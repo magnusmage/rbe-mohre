@@ -35,7 +35,7 @@ export const SESSION = {
 
 export const SPECIALIST = {
   initials: 'FA',
-  name: 'Fatima Al Marri',
+  name: 'Case Reviewer',
   role: 'Specialist · Tier 2 cleared',
 } as const;
 
@@ -158,5 +158,8 @@ export const CASES: Record<string, CaseDetail> = {
     transcriptStoredAt: '22 Sep 16:14:07',
     draftRef: 'DR-2409-0087',
     draftConfirmedAt: '16:11:52',
+    decision: null,
+    decidedBy: null,
+    decidedAt: '',
   },
 };

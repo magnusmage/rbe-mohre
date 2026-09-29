@@ -11,7 +11,7 @@ import { ReadyScreen } from './ReadyScreen';
 vi.mock('@/services/media/microphone', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/services/media/microphone')>()),
   // MOCK: jsdom cannot prompt for microphone access.
-  ensureMicrophoneAccess: vi.fn(async () => {}),
+  ensureMicrophoneAccess: vi.fn(async () => { }),
 }));
 
 vi.mock('@/services/session/sessionApi', () => ({
@@ -22,7 +22,7 @@ vi.mock('@/services/session/sessionApi', () => ({
 vi.mock('@/services/voice/voiceAgent', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/services/voice/voiceAgent')>()),
   // MOCK: the ElevenLabs session is covered by voiceAgent.test.ts.
-  voiceAgent: { connect: vi.fn(async () => 'conv_1'), end: vi.fn(async () => {}), setMuted: vi.fn() },
+  voiceAgent: { connect: vi.fn(async () => 'conv_1'), end: vi.fn(async () => { }), setMuted: vi.fn() },
 }));
 
 const micMock = vi.mocked(ensureMicrophoneAccess);
@@ -42,36 +42,12 @@ beforeEach(() => {
   connectMock.mockResolvedValue('conv_1');
 });
 
-describe('ReadyScreen — form', () => {
-  it('prefills the verification fields', () => {
-    renderReady();
-
-    expect(screen.getByLabelText('Worker ID')).toHaveValue('WRK-1002');
-    expect(screen.getByLabelText('Case reference')).toHaveValue('LAB-1002');
-    expect(screen.getByLabelText('One-time PIN (SMS)')).toHaveValue('4821');
-  });
-
-  it('lets the caller edit the fields', async () => {
-    const { user } = renderReady();
-    const workerId = screen.getByLabelText('Worker ID');
-
-    await user.clear(workerId);
-    await user.type(workerId, 'WRK-2000');
-    expect(workerId).toHaveValue('WRK-2000');
-  });
-
-  it('lets the caller pick a spoken language', async () => {
-    const { user } = renderReady();
-
-    const english = screen.getByRole('radio', { name: 'English' });
-    const arabic = screen.getByRole('radio', { name: 'العربية' });
-    expect(english).toHaveAttribute('aria-checked', 'true');
-
-    await user.click(arabic);
-    expect(arabic).toHaveAttribute('aria-checked', 'true');
-    expect(english).toHaveAttribute('aria-checked', 'false');
-  });
-});
+/**
+ * The verification-fields fieldset (Worker ID / Case reference / PIN / spoken-language radios)
+ * and the inline error <Alert> block on the ReadyScreen are currently commented out in
+ * source. The tests below focus on the behaviour that survives that: the primary button's
+ * label + disabled state, and the redux state driven by the useStartCall thunk.
+ */
 
 describe('ReadyScreen — starting a call', () => {
   it('runs the start flow and opens the call screen once connected', async () => {
@@ -86,8 +62,8 @@ describe('ReadyScreen — starting a call', () => {
     expect(selectCallSession(store).status).toBe('connected');
   });
 
-  it('shows progress and locks the form while connecting', async () => {
-    let release: (id: string) => void = () => {};
+  it('shows progress and locks the button while connecting', async () => {
+    let release: (id: string) => void = () => { };
     connectMock.mockImplementation(() => new Promise<string>((resolve) => (release = resolve)));
     const { user } = renderReady();
 
@@ -95,7 +71,6 @@ describe('ReadyScreen — starting a call', () => {
 
     const button = await screen.findByRole('button', { name: /connecting to assistant/i });
     expect(button).toBeDisabled();
-    expect(screen.getByLabelText('Worker ID')).toBeDisabled();
     // The same text is announced politely for screen readers.
     expect(screen.getAllByText('Connecting to assistant…')).toHaveLength(2);
 
@@ -103,7 +78,7 @@ describe('ReadyScreen — starting a call', () => {
   });
 
   it('ignores extra presses while a start is already running', async () => {
-    let release: (id: string) => void = () => {};
+    let release: (id: string) => void = () => { };
     connectMock.mockImplementation(() => new Promise<string>((resolve) => (release = resolve)));
     const { user } = renderReady();
 
@@ -117,7 +92,7 @@ describe('ReadyScreen — starting a call', () => {
   });
 
   it('does not navigate when the screen was left mid-connection', async () => {
-    let release: (id: string) => void = () => {};
+    let release: (id: string) => void = () => { };
     connectMock.mockImplementation(() => new Promise<string>((resolve) => (release = resolve)));
     const { user, unmount, location } = renderReady();
 
@@ -131,20 +106,20 @@ describe('ReadyScreen — starting a call', () => {
 });
 
 describe('ReadyScreen — failures', () => {
-  it('explains a blocked microphone and offers a retry', async () => {
+  it('switches the button label to "Try again" when the microphone is blocked', async () => {
     micMock.mockRejectedValue(new MicrophoneAccessError('denied'));
-    const { user, location } = renderReady();
+    const { user, location, store } = renderReady();
 
     await user.click(screen.getByRole('button', { name: /start call/i }));
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Microphone access needed');
-    expect(alert).toHaveTextContent(/blocked/i);
-    expect(screen.getByRole('button', { name: /try again/i })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: /try again/i })).toBeEnabled();
     expect(location()).toBe(ROUTES.callerReady);
+    const state = selectCallSession(store);
+    expect(state.status).toBe('failed');
+    expect(state.error?.source).toBe('microphone');
   });
 
-  it('keeps the message steady when an instant retry fails again', async () => {
+  it('keeps the failed state stable when an instant retry fails again', async () => {
     micMock.mockRejectedValue(new MicrophoneAccessError('denied'));
     const { user } = renderReady();
 
@@ -153,54 +128,44 @@ describe('ReadyScreen — failures', () => {
 
     await user.click(retry);
 
-    // No spinner flash and no disappearing error for a failure this fast.
-    expect(screen.getByRole('alert')).toHaveTextContent('Microphone access needed');
+    // No spinner flash for a failure this fast; still parked on Try again.
     expect(screen.queryByText('Checking microphone…')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
-  it('links to the repository when the voice service is not live yet', async () => {
+  it('records an api-source error when the voice service is not live yet', async () => {
     signedUrlMock.mockRejectedValue(new ApiError('http', 'signed_url_unavailable', 502));
-    const { user } = renderReady();
+    const { user, store } = renderReady();
 
     await user.click(screen.getByRole('button', { name: /start call/i }));
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Work is currently in progress.');
-    const link = screen.getByRole('link', { name: 'rbe-mohre' });
-    expect(link).toHaveAttribute('href', 'https://github.com/magnusmage/rbe-mohre');
-    expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    await waitFor(() => expect(selectCallSession(store).status).toBe('failed'));
+    const state = selectCallSession(store);
+    expect(state.error?.source).toBe('api');
+    // The 502 path attaches the repository link metadata even though the inline
+    // <Alert> is commented out in the current UI.
+    expect(state.error?.link?.label).toBe('rbe-mohre');
+    expect(state.error?.link?.href).toBe('https://github.com/magnusmage/rbe-mohre');
   });
 
-  it('reports a failed connection', async () => {
+  it('reports a failed connection by parking on "Try again"', async () => {
     connectMock.mockRejectedValue(new Error('socket closed'));
-    const { user, location } = renderReady();
+    const { user, location, store } = renderReady();
 
     await user.click(screen.getByRole('button', { name: /start call/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't connect to the assistant");
+    expect(await screen.findByRole('button', { name: /try again/i })).toBeInTheDocument();
     expect(location()).toBe(ROUTES.callerReady);
+    expect(selectCallSession(store).error?.source).toBe('connection');
   });
 
-  it('lets the caller dismiss the message', async () => {
-    micMock.mockRejectedValue(new MicrophoneAccessError('denied'));
-    const { user } = renderReady();
-    await user.click(screen.getByRole('button', { name: /start call/i }));
-    await screen.findByRole('alert');
-
-    await user.click(screen.getByRole('button', { name: /dismiss/i }));
-
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /start call/i })).toBeInTheDocument();
-  });
-
-  it('surfaces an error left behind by a dropped call', () => {
+  it('surfaces an error left behind by a dropped call via the button label', () => {
     const store = makeStore({
       status: 'failed',
       error: { source: 'connection', title: 'Call disconnected', message: 'The call was interrupted.' },
     });
     renderReady(store);
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Call disconnected');
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 });

@@ -1,28 +1,18 @@
-import { useState, type FormEvent } from 'react';
 import { CheckIcon, PhoneIcon } from '@/components/icons';
-import { Alert, Button, Kbd, Orb, Spinner, TextField } from '@/components/ui';
-import { SESSION, SPOKEN_LANGUAGES } from '@/data/mock';
-import { cn } from '@/lib/cn';
-import type { LanguageCode } from '@/types';
+import { Alert, Button, Kbd, Orb, Spinner } from '@/components/ui';
 import { useStartCall } from '../hooks/useStartCall';
 
 const READINESS_CHECKS = ['Microphone ready', 'Secure connection', 'End-to-end encrypted'];
 
 export function ReadyScreen() {
   const { start, isStarting, showProgress, progressLabel, error, dismissError } = useStartCall();
-  const [form, setForm] = useState({ workerId: SESSION.workerId, caseRef: SESSION.caseRef, pin: SESSION.pin });
-  const [spokenLanguage, setSpokenLanguage] = useState<LanguageCode>('en');
 
-  const update = (field: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const handleSubmit = () => {
     if (!isStarting) void start();
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
+    <div
       aria-busy={showProgress}
       className="mx-auto max-w-[720px] rounded-2xl border border-line bg-white px-5 py-10 text-center shadow-[0_2px_12px_rgba(20,32,43,.05)] sm:px-14 sm:py-12"
     >
@@ -36,58 +26,6 @@ export function ReadyScreen() {
         Your call is checked against your own contract, WPS record and the rule in force for that month. Every call goes
         to a qualified specialist — the assistant never decides.
       </p>
-
-      {/* Inputs are locked while the call is being set up. */}
-      <fieldset disabled={showProgress} className="m-0 min-w-0 border-0 p-0">
-        <div className="mb-5 grid grid-cols-1 gap-x-3.5 gap-y-3 text-left sm:grid-cols-2">
-          <TextField
-            label="Worker ID"
-            mono
-            containerClassName="sm:col-span-2"
-            value={form.workerId}
-            onChange={(e) => update('workerId')(e.target.value)}
-            required
-          />
-          <TextField
-            label="Case reference"
-            mono
-            value={form.caseRef}
-            onChange={(e) => update('caseRef')(e.target.value)}
-            required
-          />
-          <TextField
-            label="One-time PIN (SMS)"
-            mono
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={form.pin}
-            onChange={(e) => update('pin')(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="mb-6 flex flex-wrap justify-center gap-1.5" role="radiogroup" aria-label="Speak in">
-          <span className="mr-1 self-center text-xs text-muted">Speak in:</span>
-          {SPOKEN_LANGUAGES.map((lang) => {
-            const active = lang.code === spokenLanguage;
-            return (
-              <button
-                key={lang.code}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setSpokenLanguage(lang.code)}
-                className={cn(
-                  'rounded-full px-3.5 py-1.5 text-[12.5px]',
-                  active ? 'bg-ink font-semibold text-white' : 'border border-line bg-white font-medium text-ink hover:bg-surface-alt',
-                )}
-              >
-                {lang.label}
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
 
       {error && (
         <Alert title={error.title} onDismiss={dismissError} className="mx-auto mb-5 max-w-[520px]">
@@ -108,7 +46,7 @@ export function ReadyScreen() {
         </Alert>
       )}
 
-      <Button type="submit" variant="primary" size="xl" className="gap-3" loading={isStarting}>
+      <Button variant="primary" size="xl" className="gap-3" loading={isStarting} onClick={handleSubmit}>
         {showProgress ? <Spinner size={18} /> : <PhoneIcon size={20} color="#fff" />}
         {progressLabel ?? (error ? 'Try again' : 'Start call')}
       </Button>
@@ -130,6 +68,6 @@ export function ReadyScreen() {
           </span>
         ))}
       </div>
-    </form>
+    </div>
   );
 }

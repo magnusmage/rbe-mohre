@@ -1,24 +1,52 @@
 import { Badge, Card, CardHeader } from '@/components/ui';
-import type { CaseDetail } from '@/types';
+import type { DraftDto } from '@/services/review/reviewApi';
+import { SectionEmpty } from './CaseSectionStates';
 
-export function ComplaintDraftCard({ detail }: { detail: CaseDetail }) {
+interface ComplaintDraftCardProps {
+  draft: DraftDto | null;
+  /** Server-formatted local timestamp of the `draft_complaint` audit event. */
+  confirmedAt?: string;
+}
+
+export function ComplaintDraftCard({ draft, confirmedAt }: ComplaintDraftCardProps) {
+  if (!draft) {
+    return (
+      <Card radius="md">
+        <CardHeader size="sm" title="Complaint draft" />
+        <SectionEmpty>No complaint draft was prepared during this call.</SectionEmpty>
+      </Card>
+    );
+  }
+
+  const body = draft.body ?? {};
+  const filed = Boolean(draft.filed);
+
   return (
     <Card radius="md">
       <CardHeader
         size="sm"
         title="Complaint draft (worker-confirmed)"
-        meta={<span className="mono text-[11px] text-muted">{detail.draftRef} · filed: false</span>}
+        meta={
+          <span className="mono text-[11px] text-muted">
+            {draft.draft_ref} · filed: {String(filed)}
+          </span>
+        }
         aside={
-          <Badge tone="brand" className="px-2 font-normal tracking-normal">
-            confirmed {detail.draftConfirmedAt}
-          </Badge>
+          draft.worker_confirmed ? (
+            <Badge tone="brand" className="px-2 font-normal tracking-normal">
+              confirmed{confirmedAt ? ` ${confirmedAt}` : ''}
+            </Badge>
+          ) : (
+            <Badge tone="warning" className="px-2 font-normal tracking-normal">
+              awaiting worker confirmation
+            </Badge>
+          )
         }
       />
       <div className="px-4 py-3.5 text-[13.5px] leading-[1.6]">
-        Verified: WPS shows AED 3,500.00 paid on 2026-08-01 for period 2026-07; contract total wage AED 4,200.00;
-        employer deduction of AED 700.00 recorded as "damage". Allegation: worker states the damage was not their fault
-        and the AED 700 was not received. Missing evidence: none. Filed: <span className="mono">false</span> — will only
-        be submitted to the complaint service if the specialist decides <span className="mono">open_complaint</span>.
+        {body.summary || 'No summary was captured for this draft.'} Filed:{' '}
+        <span className="mono">{String(filed)}</span> — will only be submitted to the complaint service if the
+        specialist decides <span className="mono">open_complaint</span>.
       </div>
     </Card>
   );

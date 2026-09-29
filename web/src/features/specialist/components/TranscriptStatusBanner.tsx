@@ -3,10 +3,49 @@ import { CheckIcon, LockIcon } from '@/components/icons';
 interface TranscriptStatusBannerProps {
   pending: boolean;
   storedAt: string;
+  /** Present once the specialist has recorded a decision (from `review.decision`). */
+  decision?: string | null;
+  decidedAt?: string;
+  decidedBy?: string | null;
 }
 
-/** Explains whether the decision is locked (transcript pending) or ready. */
-export function TranscriptStatusBanner({ pending, storedAt }: TranscriptStatusBannerProps) {
+/** Reader-friendly label for a backend decision code. */
+const DECISION_LABEL: Record<string, string> = {
+  uphold_information: 'Uphold information',
+  open_complaint: 'Open complaint',
+  refer: 'Refer',
+  request_more: 'Request more evidence',
+};
+
+function labelFor(code: string): string {
+  return DECISION_LABEL[code] ?? code;
+}
+
+/**
+ * Explains whether the decision is:
+ *  1. locked (transcript pending), or
+ *  2. already recorded, or
+ *  3. ready to decide.
+ */
+export function TranscriptStatusBanner({ pending, storedAt, decision, decidedAt, decidedBy }: TranscriptStatusBannerProps) {
+  if (decision) {
+    return (
+      <div
+        role="status"
+        className="mb-4 flex flex-wrap items-center gap-2.5 rounded-lg border border-l-4 border-brand-100 border-l-success bg-brand-50 px-4 py-2.5"
+      >
+        <CheckIcon size={16} color="#067647" />
+        <div className="flex-1 text-[13px] text-brand-dark">
+          <strong>Decision recorded.</strong> This item has been decided: <strong>{labelFor(decision)}</strong>
+          {decidedBy ? ` · by ${decidedBy}` : ''}. No further changes can be made.
+        </div>
+        <span className="mono text-[11.5px] text-success">
+          {decidedAt ? `decided ${decidedAt}` : 'decided'}
+        </span>
+      </div>
+    );
+  }
+
   if (pending) {
     return (
       <div

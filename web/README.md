@@ -118,8 +118,6 @@ The app moves to `/caller/call` only after the ElevenLabs session is connected.
 - Side panel tabs: Transcript + case history, Audit log, Rule text.
 - *Print pack* opens the browser print dialog (navigation and side panels are hidden in print).
 
-**Not wired (visual only):** *Track my case*, *Download transcript (PDF)*, *Assign to...*.
-
 ## Testing
 
 ```bash
