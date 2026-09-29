@@ -12,31 +12,72 @@ import {
   reviewQueueReducer,
   type ReviewQueueState,
 } from '@/features/specialist/state/reviewQueueSlice';
+import {
+  selectReviewerToken,
+  specialistAuthReducer,
+  type SpecialistAuthState,
+} from '@/features/specialist/state/specialistAuthSlice';
 import type { RootState } from '@/store';
+import { setReviewerTokenProvider, setUnauthorizedHandler } from '@/services/http/apiClient';
 
 /** The slice's own initial state, used as the base for seeded test states. */
 export const initialCallSession: CallSessionState = callSessionReducer(undefined, { type: '@@test/init' });
 export const initialReviewQueue: ReviewQueueState = reviewQueueReducer(undefined, { type: '@@test/init' });
 export const initialCase: CaseState = caseReducer(undefined, { type: '@@test/init' });
+/**
+ * Default specialistAuth state for tests: signed in with a fixed test token.
+ * Sign-out / sign-in specific tests override this by passing a
+ * `{ token: null }` (or a different token) into `makeStore`.
+ */
+export const TEST_REVIEWER_TOKEN = 'test-reviewer-token';
+export const initialSpecialistAuth: SpecialistAuthState = {
+  token: TEST_REVIEWER_TOKEN,
+  pendingToken: null,
+  verifying: false,
+  error: null,
+};
 
 /** Fresh store per test; accepts partial slice states as the starting point. */
 export function makeStore(
   callSession?: Partial<CallSessionState>,
   reviewQueue?: Partial<ReviewQueueState>,
   caseState?: Partial<CaseState>,
+  specialistAuth?: Partial<SpecialistAuthState>,
 ) {
-  const preloadedState =
-    callSession || reviewQueue || caseState
-      ? {
-          callSession: { ...initialCallSession, ...callSession },
-          reviewQueue: { ...initialReviewQueue, ...reviewQueue },
-          case: { ...initialCase, ...caseState },
-        }
-      : undefined;
-  return configureStore({
-    reducer: { callSession: callSessionReducer, reviewQueue: reviewQueueReducer, case: caseReducer },
+  const preloadedState = {
+    callSession: { ...initialCallSession, ...callSession },
+    reviewQueue: { ...initialReviewQueue, ...reviewQueue },
+    case: { ...initialCase, ...caseState },
+    specialistAuth: { ...initialSpecialistAuth, ...specialistAuth },
+  };
+  const store = configureStore({
+    reducer: {
+      callSession: callSessionReducer,
+      reviewQueue: reviewQueueReducer,
+      case: caseReducer,
+      specialistAuth: specialistAuthReducer,
+    },
     preloadedState,
   });
+  // Re-wire the HTTP layer so its interceptors read tokens from THIS store.
+  // The real `store/index.ts` does the same wiring for the app; tests need it
+  // per-store so a signed-out fixture doesn't accidentally leak a token from
+  // an earlier test's store.
+  // Selector picks the verified token first, then falls back to the pending one
+  // so an in-flight sign-in verification can still authenticate its own probe.
+  setReviewerTokenProvider(() => selectReviewerToken(store.getState()));
+  setUnauthorizedHandler(() => {
+    if (selectReviewerToken(store.getState())) {
+      // Mirrors the production store's 401 handler: 401 → token cleared +
+      // error set → sign-in modal reopens. Uses the reducer's action creator
+      // shape so tests exercise the same code path as the real app.
+      store.dispatch({
+        type: 'specialistAuth/reviewerTokenRejected',
+        payload: 'The token you entered is incorrect. Please try again.',
+      });
+    }
+  });
+  return store;
 }
 
 /** Seeded state for a live call, as it looks right after `startCall` succeeds. */

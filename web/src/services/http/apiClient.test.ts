@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stubFetch } from '@/test/mocks/browserApis';
-import { ApiError, apiGet } from './apiClient';
+import { ApiError, apiGet, apiPost, setReviewerTokenProvider, setUnauthorizedHandler } from './apiClient';
 
 afterEach(() => vi.useRealTimers());
 
@@ -103,5 +103,75 @@ describe('ApiError', () => {
     expect(error.kind).toBe('http');
     expect(error.status).toBe(418);
     expect(error).toBeInstanceOf(Error);
+  });
+});
+
+describe('reviewer-token interceptor', () => {
+  afterEach(() => {
+    // Restore what setup.ts installed so cross-test order stays deterministic.
+    setReviewerTokenProvider(() => 'test-reviewer-token');
+    setUnauthorizedHandler(() => {});
+  });
+
+  it('attaches Authorization: Bearer <token> to /review requests', async () => {
+    setReviewerTokenProvider(() => 'live-token');
+    const { calls } = stubFetch({ body: { items: [] } });
+
+    await apiGet('/review/queue');
+
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer live-token');
+  });
+
+  it('attaches Authorization to /audit requests too', async () => {
+    setReviewerTokenProvider(() => 'live-token');
+    const { calls } = stubFetch({ body: {} });
+
+    await apiGet('/audit/xyz');
+
+    expect((calls[0].init?.headers as Record<string, string>).Authorization).toBe('Bearer live-token');
+  });
+
+  it('does NOT attach the token to non-reviewer endpoints (e.g. /session/*)', async () => {
+    setReviewerTokenProvider(() => 'live-token');
+    const { calls } = stubFetch({ body: { url: 'wss://x' } });
+
+    await apiGet('/session/signed-url');
+
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
+
+  it('short-circuits a reviewer request with a 401 ApiError when no token is set', async () => {
+    setReviewerTokenProvider(() => null);
+    const { calls } = stubFetch({ body: {} });
+
+    const error = (await apiGet('/review/queue').catch((e: unknown) => e)) as ApiError;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(401);
+    // No request was sent — the interceptor caught it before hitting the network.
+    expect(calls).toHaveLength(0);
+  });
+
+  it('calls the unauthorized handler when a reviewer endpoint returns 401', async () => {
+    const onUnauthorized = vi.fn();
+    setReviewerTokenProvider(() => 'live-token');
+    setUnauthorizedHandler(onUnauthorized);
+    stubFetch({ status: 401, body: { detail: 'expired' } });
+
+    await apiGet('/review/queue').catch(() => {});
+
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('never sends the token as a query string', async () => {
+    setReviewerTokenProvider(() => 'live-token');
+    const { calls } = stubFetch({ body: { ok: true } });
+
+    await apiPost('/review/RV-1/decision', { decision: 'x', reviewer: 'r' });
+
+    expect(calls[0].url).not.toContain('token=');
+    expect(calls[0].url).not.toContain('live-token');
   });
 });

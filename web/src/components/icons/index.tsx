@@ -110,3 +110,27 @@ export const CheckCircleIcon = createIcon(
     <circle cx="12" cy="12" r="10" />
   </>,
 );
+
+export const EyeIcon = createIcon(
+  <>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);
+
+export const EyeOffIcon = createIcon(
+  <>
+    <path d="M17.94 17.94A10.5 10.5 0 0112 19c-6.5 0-10-7-10-7a19.6 19.6 0 015.11-6" />
+    <path d="M9.9 4.24A10.9 10.9 0 0112 4c6.5 0 10 7 10 7a19.7 19.7 0 01-3.17 4.11" />
+    <path d="M9.9 9.9a3 3 0 004.24 4.24" />
+    <path d="M1 1l22 22" />
+  </>,
+);
+
+export const LogOutIcon = createIcon(
+  <>
+    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+    <path d="M16 17l5-5-5-5" />
+    <path d="M21 12H9" />
+  </>,
+);

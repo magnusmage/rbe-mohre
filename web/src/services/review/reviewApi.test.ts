@@ -391,14 +391,16 @@ describe('postReviewDecision', () => {
   const REF = 'RV-1';
   const body = { decision: 'uphold_information', reviewer: 'Case Reviewer' };
 
-  it('POSTs the decision + reviewer with the bearer token and token query param', async () => {
+  it('POSTs the decision + reviewer with the bearer token in the Authorization header only', async () => {
     const { calls } = stubFetch({ body: { ok: true, decision: 'uphold_information' } });
 
     await postReviewDecision(REF, body);
 
     expect(calls).toHaveLength(1);
     expect(calls[0].init?.method).toBe('POST');
-    expect(calls[0].url).toBe(`http://api.test/review/${REF}/decision?token=test-reviewer-token`);
+    // The token must NEVER appear in the URL (referrer / access logs / history).
+    expect(calls[0].url).toBe(`http://api.test/review/${REF}/decision`);
+    expect(calls[0].url).not.toContain('token=');
     const headers = calls[0].init?.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer test-reviewer-token');
     expect(JSON.parse(calls[0].init?.body as string)).toEqual(body);

@@ -23,9 +23,10 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     clearMocks: true,
     restoreMocks: true,
-    // Deterministic API base + reviewer token: tests never read the developer's
-    // .env or hit a real backend.
-    env: { VITE_API_BASE_URL: 'http://api.test', VITE_REVIEWER_TOKEN: 'test-reviewer-token' },
+    // Deterministic API base: tests never read the developer's .env or hit a
+    // real backend. The reviewer token is a RUNTIME value (specialist sign-in);
+    // tests that need one seed it into the specialistAuth slice.
+    env: { VITE_API_BASE_URL: 'http://api.test' },
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'html', 'lcov'],

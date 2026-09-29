@@ -1,8 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REVIEWER_TOKEN_STORAGE_KEY } from '@/features/specialist/state/specialistAuthSlice';
 import type { FetchStubResponse } from '@/test/mocks/browserApis';
-import { makeStore } from '@/test/utils';
 import { ROUTES } from './routes';
 
 const FIRST_QUEUE_REF = 'RV-2409-0031';
@@ -41,6 +41,11 @@ async function renderAppAt(path: string, responses: FetchStubResponse[] = [{ bod
   vi.resetModules();
   const { stubFetch } = await import('@/test/mocks/browserApis');
   stubFetch(responses);
+  // Re-import makeStore AFTER resetModules so it uses the same fresh modules
+  // as App — its `setReviewerTokenProvider` call must target the same
+  // apiClient module that App and stubFetch touched, or the interceptor will
+  // read a token from a different (empty) store.
+  const { makeStore } = await import('@/test/utils');
   const { App } = await import('./App');
   return render(
     <Provider store={makeStore()}>
@@ -49,8 +54,17 @@ async function renderAppAt(path: string, responses: FetchStubResponse[] = [{ bod
   );
 }
 
-beforeEach(() => vi.resetModules());
-afterEach(() => window.history.pushState({}, '', '/'));
+beforeEach(() => {
+  vi.resetModules();
+  // Seed the reviewer token in sessionStorage so the freshly-imported store
+  // (loaded by `App`) starts already signed in. Without this, the specialist
+  // routes would show the sign-in modal instead of fetching cases.
+  window.sessionStorage.setItem(REVIEWER_TOKEN_STORAGE_KEY, 'test-reviewer-token');
+});
+afterEach(() => {
+  window.history.pushState({}, '', '/');
+  window.sessionStorage.clear();
+});
 
 describe('App routing', () => {
   it('sends the root URL to the start of the caller flow', async () => {

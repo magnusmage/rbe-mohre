@@ -281,6 +281,7 @@ describe('callSession selectors', () => {
     callSession,
     reviewQueue: initialReviewQueue,
     case: initialCaseState,
+    specialistAuth: { token: null, pendingToken: null, verifying: false, error: null },
   });
 
   it('expose the pieces screens need', () => {

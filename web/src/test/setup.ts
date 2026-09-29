@@ -1,6 +1,20 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { setReviewerTokenProvider, setUnauthorizedHandler } from '@/services/http/apiClient';
+
+/**
+ * Default reviewer token for unit tests that call reviewer-scoped APIs
+ * directly (`services/review/reviewApi.test.ts`). Component tests that use
+ * `makeStore` re-wire the provider to their own store; this default only
+ * covers tests that never build a store.
+ */
+export const TEST_REVIEWER_TOKEN = 'test-reviewer-token';
+
+beforeEach(() => {
+  setReviewerTokenProvider(() => TEST_REVIEWER_TOKEN);
+  setUnauthorizedHandler(() => {});
+});
 
 afterEach(() => {
   cleanup();

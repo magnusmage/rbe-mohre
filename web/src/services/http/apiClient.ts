@@ -5,11 +5,48 @@ import axios, {
   isCancel,
   type AxiosRequestConfig,
   type AxiosResponse,
+  type InternalAxiosRequestConfig,
   type Method,
 } from 'axios';
 import { env } from '@/config/env';
 
 export type ApiErrorKind = 'network' | 'timeout' | 'aborted' | 'http' | 'parse';
+
+// ---------------------------------------------------------------------------
+// Reviewer token wiring
+//
+// Reviewer credentials only exist at runtime (specialist sign-in). The store
+// registers a getter here so the HTTP layer can attach the Authorization
+// header without importing the store (that would loop back through slices).
+// The token is NEVER cached in a module-level string — every request reads it
+// live so a Sign-out or session-storage clear takes effect immediately.
+// ---------------------------------------------------------------------------
+
+type TokenProvider = () => string | null;
+type UnauthorizedHandler = () => void;
+
+let reviewerTokenProvider: TokenProvider = () => null;
+let unauthorizedHandler: UnauthorizedHandler = () => {};
+
+export function setReviewerTokenProvider(provider: TokenProvider): void {
+  reviewerTokenProvider = provider;
+}
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler): void {
+  unauthorizedHandler = handler;
+}
+
+/** Paths that require the reviewer bearer token; matched by prefix on the URL. */
+const REVIEWER_PATH_PREFIXES = ['/review', '/audit'] as const;
+
+function pathRequiresReviewerToken(url: string | undefined): boolean {
+  if (!url) return false;
+  // Strip the base URL if it's present, so we compare pathnames only.
+  let path = url;
+  const base = env.apiBaseUrl;
+  if (base && path.startsWith(base)) path = path.slice(base.length);
+  return REVIEWER_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(`${prefix}?`));
+}
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
@@ -48,6 +85,40 @@ export const httpClient = axios.create({
   timeout: DEFAULT_TIMEOUT_MS,
   transformResponse: [(data: unknown) => data],
   validateStatus: () => true,
+});
+
+/**
+ * Reviewer-token request interceptor. Attaches `Authorization: Bearer <token>`
+ * to any request whose path is under `/review` or `/audit`, provided a token
+ * is available. If no token is available for a reviewer path, the request is
+ * cancelled with an ApiError rather than sent unauthenticated — the caller
+ * gets a clear signal to re-prompt for sign-in instead of a 401 round-trip.
+ * The token is read fresh per request via the registered provider, so nothing
+ * caches it in module state.
+ */
+httpClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (!pathRequiresReviewerToken(config.url)) return config;
+  const token = reviewerTokenProvider();
+  if (!token) {
+    // Throwing from an interceptor rejects the promise before the network is touched.
+    throw new ApiError('http', 'Reviewer sign-in required.', 401);
+  }
+  const headers = config.headers instanceof AxiosHeaders ? config.headers : new AxiosHeaders(config.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+  config.headers = headers;
+  return config;
+});
+
+/**
+ * Reviewer-token response interceptor. A 401 on a reviewer endpoint means the
+ * bearer we sent is no longer valid; drop it so the sign-in modal reappears
+ * rather than each screen deciding independently how to handle it.
+ */
+httpClient.interceptors.response.use((response) => {
+  if (response.status === 401 && pathRequiresReviewerToken(response.config.url)) {
+    unauthorizedHandler();
+  }
+  return response;
 });
 
 /** Extracts a server-provided message from common error body shapes (`detail`, `message`, `error`). */
