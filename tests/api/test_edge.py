@@ -128,8 +128,8 @@ def test_tool_needs_agent_token():
     assert r.status_code == 401
 
 
-def test_reviewer_token_is_not_agent_token(agent_headers):
-    assert client.get("/review/queue", headers=agent_headers).status_code == 401
+def test_agent_token_is_forbidden_on_reviewer_route(agent_headers):
+    assert client.get("/review/queue", headers=agent_headers).status_code == 403
 
 
 def test_extra_field_rejected(agent_headers):
