@@ -14,12 +14,112 @@ from app.settings import settings
 
 client = TestClient(app)
 
+def _get_http_log(captured: str, path: str) -> dict:
+    """Return the latest structured HTTP log for the given path."""
+    for line in reversed(captured.splitlines()):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        if event.get("path") == path:
+            return event
+
+    raise AssertionError(f"No structured HTTP log found for {path}")
+
 
 def test_health_and_data_mode():
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["data_mode"] == "synthetic"
     assert r.headers["X-Data-Mode"] == "synthetic"
+    assert r.headers["X-Trace-Id"]
+    
+
+def test_structured_logging_generates_trace_id(capsys):
+    r = client.get("/health")
+
+    assert r.status_code == 200
+    assert r.headers.get("X-Trace-Id")
+
+    event = _get_http_log(
+        capsys.readouterr().out,
+        "/health",
+    )
+
+    assert set(event) == {"trace_id", "path", "status", "ms"}
+    assert event["trace_id"] == r.headers["X-Trace-Id"]
+    assert event["path"] == "/health"
+    assert event["status"] == 200
+    assert isinstance(event["ms"], (int, float))
+    assert event["ms"] >= 0
+
+
+def test_structured_logging_propagates_trace_id(capsys):
+    trace_id = "test-trace-123"
+
+    r = client.get(
+        "/health",
+        headers={"X-Trace-Id": trace_id},
+    )
+
+    assert r.status_code == 200
+    assert r.headers["X-Trace-Id"] == trace_id
+
+    event = _get_http_log(
+        capsys.readouterr().out,
+        "/health",
+    )
+
+    assert event["trace_id"] == trace_id
+
+
+def test_structured_logging_records_error_status(capsys):
+    r = client.post("/tools/check_wage", json={
+        "conversation_id": "abcd",
+        "case_ref": "LAB-1001",
+        "period": "2026-07",
+    })
+
+    assert r.status_code == 401
+
+    event = _get_http_log(
+        capsys.readouterr().out,
+        "/tools/check_wage",
+    )
+
+    assert event["path"] == "/tools/check_wage"
+    assert event["status"] == 401
+    assert event["trace_id"] == r.headers["X-Trace-Id"]
+
+
+def test_structured_logging_does_not_log_pii(capsys):
+    conversation_id = "CONVERSATION-PII-SENTINEL"
+    worker_id = "WORKER-PII-SENTINEL"
+    case_ref = "CASE-PII-SENTINEL"
+    pin = "987654"
+
+    r = client.post(
+        "/tools/verify_session",
+        json={
+            "conversation_id": conversation_id,
+            "worker_id": worker_id,
+            "case_ref": case_ref,
+            "pin": pin,
+        },
+    )
+
+    assert r.status_code == 401
+
+    captured = capsys.readouterr().out
+    event = _get_http_log(captured, "/tools/verify_session")
+
+    assert set(event) == {"trace_id", "path", "status", "ms"}
+
+    assert conversation_id not in captured
+    assert worker_id not in captured
+    assert case_ref not in captured
+    assert pin not in captured
 
 
 def test_tool_needs_agent_token():
