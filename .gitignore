@@ -5,6 +5,8 @@ venv/
 .env
 *.db
 rbe.db
+*.db-wal
+*.db-shm
 .coverage
 htmlcov/
 .pytest_cache/
