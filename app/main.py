@@ -42,22 +42,33 @@ store = Store(settings.database_path,
 
 bearer_scheme = HTTPBearer()
 
-def _bearer(expected: str):
+def _bearer(expected: str, other_role: str):
     def dep(
         credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     ):
-        if (
-            not expected
-            or credentials.scheme.lower() != "bearer"
-            or not hmac.compare_digest(credentials.credentials, expected)
-        ):
+        supplied = credentials.credentials
+        expected_match = bool(expected) and hmac.compare_digest(supplied, expected)
+        other_role_match = bool(other_role) and hmac.compare_digest(supplied, other_role)
+
+        if credentials.scheme.lower() != "bearer" or not expected:
             raise HTTPException(401, "unauthorised")
+        if expected_match:
+            return
+        if other_role_match:
+            raise HTTPException(403, "forbidden")
+        raise HTTPException(401, "unauthorised")
 
     return dep
 
 
-agent_auth = Depends(_bearer(settings.agent_tool_token))       # /tools/* only
-reviewer_auth = Depends(_bearer(settings.reviewer_token))      # /review/*, /audit/* only
+agent_auth = Depends(_bearer(                                 # /tools/* only
+    settings.agent_tool_token,
+    settings.reviewer_token,
+))
+reviewer_auth = Depends(_bearer(                              # /review/*, /audit/* only
+    settings.reviewer_token,
+    settings.agent_tool_token,
+))
 
 
 @app.middleware("http")
