@@ -98,7 +98,7 @@ def test_review_detail_needs_reviewer_token(agent_headers, reviewer_headers):
         "tier": "tier_0_standard_review", "summary": "detail"}).json()
     review_ref = r["review_ref"]
 
-    assert client.get(f"/review/{review_ref}", headers=agent_headers).status_code == 401
+    assert client.get(f"/review/{review_ref}", headers=agent_headers).status_code == 403
     assert client.get("/review/RV-0000-0000",
                       headers=reviewer_headers).status_code == 404
 
