@@ -216,6 +216,40 @@ describe('InCallScreen — leaving', () => {
   });
 });
 
+describe('InCallScreen — live transcript', () => {
+  it('shows an empty-state hint before the first transcript turn arrives', () => {
+    renderCall(connectedCallSession({ transcript: [] }));
+
+    expect(screen.getByText(/waiting for the first turn/i)).toBeInTheDocument();
+  });
+
+  it('renders transcript turns from the store, tagged by speaker', () => {
+    renderCall(
+      connectedCallSession({
+        transcript: [
+          { who: 'Agent', time: '00:01', text: 'Hello, this call is recorded.' },
+          { who: 'Worker', time: '00:05', text: 'My July pay was short.' },
+        ],
+      }),
+    );
+
+    expect(screen.getByText('Hello, this call is recorded.')).toBeInTheDocument();
+    expect(screen.getByText('My July pay was short.')).toBeInTheDocument();
+    expect(screen.queryByText(/waiting for the first turn/i)).not.toBeInTheDocument();
+  });
+
+  it('picks up transcript updates the SDK reports mid-call', async () => {
+    const { store } = renderCall();
+
+    store.dispatch({
+      type: 'callSession/transcriptMessageAppended',
+      payload: { role: 'agent', message: 'How can I help?' },
+    });
+
+    expect(await screen.findByText('How can I help?')).toBeInTheDocument();
+  });
+});
+
 describe('InCallScreen — no live session', () => {
   it('redirects to Start call on a direct visit or after a refresh', async () => {
     const { location } = renderCall({});

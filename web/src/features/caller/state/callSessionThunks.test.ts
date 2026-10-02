@@ -159,6 +159,70 @@ describe('startCall', () => {
     expect(state.durationSeconds).not.toBeNull();
   });
 
+  it('appends transcript turns from the SDK, tagged by speaker', async () => {
+    const store = makeStore();
+    await store.dispatch(startCall());
+
+    sdkHandlers().onTranscriptMessage?.({ role: 'agent', message: 'Hello.' });
+    sdkHandlers().onTranscriptMessage?.({ role: 'user', message: 'My pay was short.' });
+
+    const { transcript } = selectCallSession(store);
+    expect(transcript).toHaveLength(2);
+    expect(transcript[0]).toMatchObject({ who: 'Agent', text: 'Hello.' });
+    expect(transcript[1]).toMatchObject({ who: 'Worker', text: 'My pay was short.' });
+    // The store stamps mm:ss on receipt so the transcript renders like the mock data.
+    expect(transcript[0].time).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it("captures the agent's opening turn even when it arrives before status flips to connected", async () => {
+    const store = makeStore();
+    let releaseConnect: (id: string) => void = () => {};
+    connectMock.mockImplementation(async (_url, handlers) => {
+      // The SDK routinely fires the opening `onMessage` on the same tick that
+      // startSession resolves. Reproduce that here by pushing a message while
+      // status is still `connecting`.
+      handlers.onTranscriptMessage?.({ role: 'agent', message: 'Hello, this call is recorded.' });
+      return new Promise<string>((resolve) => (releaseConnect = () => resolve('conv_1')));
+    });
+
+    const pending = store.dispatch(startCall());
+    // Give the thunk a tick to reach the connect step.
+    await vi.waitFor(() => expect(connectMock).toHaveBeenCalled());
+    expect(selectCallSession(store).status).toBe('connecting');
+    expect(selectCallSession(store).transcript).toHaveLength(1);
+
+    releaseConnect('conv_1');
+    await pending;
+    // And it survives fulfilment; the fulfilled reducer must not wipe transcript.
+    expect(selectCallSession(store).transcript).toHaveLength(1);
+  });
+
+  it('preserves the transcript after the call ends but wipes it on the next Start Call', async () => {
+    const store = makeStore();
+    await store.dispatch(startCall());
+    sdkHandlers().onTranscriptMessage?.({ role: 'agent', message: 'First call turn.' });
+
+    sdkHandlers().onDisconnect({ reason: 'agent' });
+    expect(selectCallSession(store).transcript).toHaveLength(1);
+
+    connectMock.mockResolvedValue('conv_2');
+    await store.dispatch(startCall());
+    // The previous call's transcript must not bleed into the new session.
+    expect(selectCallSession(store).transcript).toEqual([]);
+  });
+
+  it('drops transcript messages that arrive after the call has ended', async () => {
+    const store = makeStore();
+    await store.dispatch(startCall());
+
+    const handlers = sdkHandlers();
+    handlers.onDisconnect({ reason: 'agent' });
+    // A late-arriving turn from the SDK must not corrupt the finished transcript.
+    handlers.onTranscriptMessage?.({ role: 'agent', message: 'Late arrival.' });
+
+    expect(selectCallSession(store).transcript).toEqual([]);
+  });
+
   it('marks the call failed when the SDK drops it unexpectedly', async () => {
     const store = makeStore();
     await store.dispatch(startCall());

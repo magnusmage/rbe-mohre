@@ -14,6 +14,7 @@ function handlers(): VoiceAgentHandlers & MockedHandlers {
     onDisconnect: vi.fn(),
     onError: vi.fn(),
     onStatusChange: vi.fn(),
+    onTranscriptMessage: vi.fn(),
   } as unknown as VoiceAgentHandlers & MockedHandlers;
 }
 
@@ -62,6 +63,32 @@ describe('voiceAgent.connect', () => {
 
     elevenLabs.last.emitError('audio glitch');
     expect(h.onError).toHaveBeenCalledWith('audio glitch');
+  });
+
+  it('forwards finalised transcript turns from the SDK', async () => {
+    const h = handlers();
+    await voiceAgent.connect(SIGNED_URL, h);
+
+    elevenLabs.last.emitMessage('agent', 'Hello, this call is recorded.');
+    elevenLabs.last.emitMessage('user', 'My July pay was short.');
+
+    expect(h.onTranscriptMessage).toHaveBeenNthCalledWith(1, {
+      role: 'agent',
+      message: 'Hello, this call is recorded.',
+    });
+    expect(h.onTranscriptMessage).toHaveBeenNthCalledWith(2, {
+      role: 'user',
+      message: 'My July pay was short.',
+    });
+  });
+
+  it('ignores empty transcript messages so the UI is not polluted', async () => {
+    const h = handlers();
+    await voiceAgent.connect(SIGNED_URL, h);
+
+    elevenLabs.last.emitMessage('agent', '');
+
+    expect(h.onTranscriptMessage).not.toHaveBeenCalled();
   });
 
   it.each([

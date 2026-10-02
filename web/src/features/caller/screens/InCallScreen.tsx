@@ -3,7 +3,6 @@ import { Navigate, useBlocker, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/app/routes';
 import { TranscriptPanel } from '@/components/transcript/Transcript';
 import { Alert, ConfirmDialog } from '@/components/ui';
-import { TRANSCRIPT } from '@/data/mock';
 import { formatDuration } from '@/lib/time';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { BackButton } from '../components/BackButton';
@@ -21,6 +20,7 @@ import {
   selectAgentMode,
   selectCallStartedAt,
   selectCallStatus,
+  selectCallTranscript,
   selectIsCallActive,
   selectIsEndingCall,
   selectMuted,
@@ -37,6 +37,7 @@ export function InCallScreen() {
   const agentError = useAppSelector(selectAgentError);
   const muted = useAppSelector(selectMuted);
   const startedAt = useAppSelector(selectCallStartedAt);
+  const transcript = useAppSelector(selectCallTranscript);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>('pending');
 
   const isLive = status === 'connected';
@@ -137,8 +138,9 @@ export function InCallScreen() {
             <TranscriptPanel
               title="Live transcript"
               aside={<span className="text-[11px] text-muted">Scribe v2 · EN</span>}
-              entries={TRANSCRIPT}
+              entries={transcript}
               showTools
+              emptyMessage="Waiting for the first turn…"
               className="max-h-[600px]"
             />
             <RightsCard />

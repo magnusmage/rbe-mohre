@@ -17,6 +17,7 @@ import { vi } from 'vitest';
 
 export type FakeMode = 'speaking' | 'listening';
 export type FakeConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'disconnecting';
+export type FakeRole = 'user' | 'agent';
 export type FakeDisconnectionDetails =
   | { reason: 'error'; message: string; context: unknown }
   | { reason: 'agent' }
@@ -31,6 +32,7 @@ export interface FakeStartSessionOptions {
   onError?: (message: string, context?: unknown) => void;
   onModeChange?: (props: { mode: FakeMode }) => void;
   onStatusChange?: (props: { status: FakeConnectionStatus }) => void;
+  onMessage?: (props: { message: string; role: FakeRole; source: string }) => void;
 }
 
 export class FakeConversation {
@@ -70,6 +72,11 @@ export class FakeConversation {
   /** Non-fatal SDK error. */
   emitError(message: string) {
     this.options.onError?.(message);
+  }
+
+  /** Finalised transcript turn (as the SDK's `onMessage` would deliver it). */
+  emitMessage(role: FakeRole, message: string) {
+    this.options.onMessage?.({ role, message, source: role === 'agent' ? 'ai' : 'user' });
   }
 
   /** Agent hang-up, user end, or an unexpected drop. */
