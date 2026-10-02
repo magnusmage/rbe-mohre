@@ -3,9 +3,10 @@ the stdlib-only domain suite stays runnable with unittest alone."""
 import unittest
 
 try:
-    from hypothesis import given, strategies as st
+    from hypothesis import given
+    from hypothesis import strategies as st
 except ImportError:  # pragma: no cover
-    raise unittest.SkipTest("hypothesis not installed")
+    raise unittest.SkipTest("hypothesis not installed") from None
 
 from datetime import date, timedelta
 

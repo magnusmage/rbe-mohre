@@ -21,7 +21,13 @@ from __future__ import annotations
 import json
 
 from . import rules
-from .adapters import DependencyDown, SyntheticContracts, SyntheticWPS
+from .adapters import (
+    ContractAdapter,
+    DependencyDown,
+    SyntheticContracts,
+    SyntheticWPS,
+    WPSAdapter,
+)
 from .normalise import PERIOD, normalise_ref
 from .registry import DECISIONS
 from .store import Store
@@ -35,14 +41,18 @@ class ScopeError(Exception):
 
 # ------------------------------------------------------------- composition
 
-def _adapters(store: Store):
+def _adapters(store: Store) -> tuple[ContractAdapter, WPSAdapter]:
     """Adapters are attached at composition (main.py / tests). Default:
     synthetic adapters over the fixture set."""
-    if store.contracts is None:
-        store.contracts = SyntheticContracts(store.workers)
-    if store.wps is None:
-        store.wps = SyntheticWPS(store.workers)
-    return store.contracts, store.wps
+    contracts = store.contracts
+    wps = store.wps
+    if contracts is None:
+        contracts = SyntheticContracts(store.workers)
+        store.contracts = contracts
+    if wps is None:
+        wps = SyntheticWPS(store.workers)
+        store.wps = wps
+    return contracts, wps
 
 
 def _load_worker(store: Store, worker_id: str) -> dict:
@@ -83,8 +93,18 @@ def _run(store: Store, conv: str, action: str, case_ref: str, fn) -> dict:
                        "I can't check. I can pass you to a person or arrange a callback.", ref)
     res = fn(worker)
     result = res.to_dict()                                     # pure rule from rules.py
-    store.audit("agent", action, res.status, conv, ref,
-                {"tier": res.tier.value, "rules": [f.rule_id for f in res.findings], "check_result": result})
+    store.audit(
+        "agent",
+        action,
+        res.status,
+        conv,
+        ref,
+        {
+            "tier": res.tier.value,
+            "rules": [f.rule_id for f in res.findings],
+            "check_result": result,
+        },
+    )
     return {"ok": True, **res.to_dict()}
 
 
@@ -94,6 +114,8 @@ def verify_session(store: Store, conv: str, worker_id: str, case_ref: str, pin: 
     wid, ref, code = normalise_ref(worker_id), normalise_ref(case_ref), normalise_ref(pin)
     store.start_session(conv)
     s = store.session(conv)
+    if s is None:
+        raise RuntimeError("call session was not created")
     if s["locked"]:
         return _refuse(store, conv, "verify_session", "verification_locked",
                        "I can't verify you on this call. Please try the MoHRE app "
@@ -251,8 +273,14 @@ def send_to_review(store: Store, conv: str, case_ref: str, tier: str, summary: s
 
     existing = store.active_review(ref, conv)
     if existing:
-        return _refuse(store, conv, "send_to_review", "already_queued",
-                       "A specialist is already reviewing this case. Please wait for their response.", ref)
+        return _refuse(
+            store,
+            conv,
+            "send_to_review",
+            "already_queued",
+            "A specialist is already reviewing this case. Please wait for their response.",
+            ref,
+        )
 
     # floor = highest tier any check produced on this call (invariant 5)
     seen = []
@@ -360,4 +388,3 @@ def review_detail(store: Store, review_ref: str) -> dict:
         "transcript": transcript,
         "audit": store.audit_for(case_ref),
     }
-

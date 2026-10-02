@@ -1,8 +1,9 @@
 """Persistence: sqlite3 now, Postgres later, same method names.
 
 DATA layer, standard library only. The audit table is append-only by database
-trigger; even our own code cannot edit or delete it (invariant 6). Writes are
-serialised with a lock because FastAPI runs sync endpoints in a thread pool.
+trigger; even our own code cannot edit or delete it (invariant 6). A single
+connection is retained for the SQLite pilot and every database operation is
+serialised because FastAPI runs sync endpoints in a thread pool. See D11.
 """
 from __future__ import annotations
 
@@ -10,6 +11,10 @@ import json
 import sqlite3
 import threading
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .adapters import ContractAdapter, WPSAdapter
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS call_session (
@@ -43,8 +48,18 @@ class Store:
                  rules: dict | None = None):
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
-        self._lock = threading.Lock()
+        # sqlite3 connections cannot be used concurrently, even with
+        # check_same_thread disabled. RLock lets future compound Store
+        # operations reuse these helpers without deadlocking.
+        self._lock = threading.RLock()
         with self._lock:
+            self.db.execute("PRAGMA busy_timeout=5000")
+            if path != ":memory:":
+                # WAL allows other processes to read the pilot database while
+                # this process writes. Access inside this process remains
+                # serialised through _lock.
+                self.db.execute("PRAGMA journal_mode=WAL")
+                self.db.execute("PRAGMA synchronous=NORMAL")
             self.db.executescript(SCHEMA)
             self.db.commit()
         # Synthetic fixtures and rule parameters, loaded by the composition
@@ -56,24 +71,33 @@ class Store:
         # Adapter attachment points (C6/C7): set by the composition root
         # (main.py) or by tests; service._adapters fills in synthetic
         # defaults when left as None.
-        self.contracts = None
-        self.wps = None
+        self.contracts: ContractAdapter | None = None
+        self.wps: WPSAdapter | None = None
 
     # ------------------------------------------------------------- plumbing
-    def _w(self, sql: str, args=()):
-        with self._lock:                     # one writer at a time
+    def _w(self, sql: str, args=()) -> int:
+        with self._lock:
             cur = self.db.execute(sql, args)
             self.db.commit()
-            return cur
+            return cur.rowcount
+
+    def _one(self, sql: str, args=()) -> sqlite3.Row | None:
+        with self._lock:
+            return self.db.execute(sql, args).fetchone()
+
+    def _all(self, sql: str, args=()) -> list[sqlite3.Row]:
+        with self._lock:
+            return self.db.execute(sql, args).fetchall()
 
     def _ref(self, prefix: str) -> str:
-        self._seq += 1
-        return f"{prefix}-{int(time.time())}-{self._seq:04d}"
+        with self._lock:
+            self._seq += 1
+            return f"{prefix}-{int(time.time())}-{self._seq:04d}"
 
     # -------------------------------------------------------------- session
     def session(self, conversation_id: str) -> dict | None:
-        r = self.db.execute("SELECT * FROM call_session WHERE conversation_id=?",
-                            (conversation_id,)).fetchone()
+        r = self._one("SELECT * FROM call_session WHERE conversation_id=?",
+                      (conversation_id,))
         return dict(r) if r else None
 
     def start_session(self, conversation_id: str) -> None:
@@ -103,7 +127,7 @@ class Store:
                 (case_ref, period, statement, time.time()))
 
     def allegations(self, case_ref: str) -> list[dict]:
-        return [dict(r) for r in self.db.execute(
+        return [dict(r) for r in self._all(
             "SELECT period, statement, at FROM allegation WHERE case_ref=? ORDER BY id",
             (case_ref,))]
 
@@ -116,7 +140,7 @@ class Store:
         return ref
 
     def latest_draft(self, case_ref: str) -> dict | None:
-        row = self.db.execute(
+        row = self._one(
             """
             SELECT *
             FROM draft
@@ -125,7 +149,7 @@ class Store:
             LIMIT 1
             """,
             (case_ref,),
-        ).fetchone()
+        )
 
         if row is None:
             return None
@@ -148,12 +172,12 @@ class Store:
         return ref
 
     def review(self, review_ref: str) -> dict | None:
-        r = self.db.execute("SELECT * FROM review_item WHERE review_ref=?",
-                            (review_ref,)).fetchone()
+        r = self._one("SELECT * FROM review_item WHERE review_ref=?",
+                      (review_ref,))
         return dict(r) if r else None
-    
+
     def active_review(self, case_ref: str, conversation_id: str):
-        row = self.db.execute(
+        row = self._one(
             """
             SELECT *
             FROM review_item
@@ -164,14 +188,14 @@ class Store:
             LIMIT 1
             """,
             (case_ref, conversation_id),
-        ).fetchone()
+        )
 
         return dict(row) if row else None
 
     def queue(self) -> list[dict]:
         order = ("CASE tier WHEN 'tier_2_mandatory_human' THEN 0 "
                  "WHEN 'tier_1_priority_review' THEN 1 ELSE 2 END, at")
-        return [dict(r) for r in self.db.execute(
+        return [dict(r) for r in self._all(
             f"SELECT * FROM review_item WHERE decision IS NULL ORDER BY {order}")]
 
     def decide(self, review_ref: str, decision: str, reviewer: str) -> None:
@@ -180,19 +204,20 @@ class Store:
 
     # ------------------------------------------------------------ transcripts
     def save_transcript(self, conversation_id: str, body: dict) -> bool:
-        cur = self._w("INSERT OR IGNORE INTO transcript(conversation_id, body_json, at) "
-                      "VALUES (?,?,?)", (conversation_id, json.dumps(body), time.time()))
-        return cur.rowcount == 1          # False -> duplicate, ignored
+        rowcount = self._w(
+            "INSERT OR IGNORE INTO transcript(conversation_id, body_json, at) "
+            "VALUES (?,?,?)", (conversation_id, json.dumps(body), time.time()))
+        return rowcount == 1              # False -> duplicate, ignored
 
     def has_transcript(self, conversation_id: str) -> bool:
-        return self.db.execute("SELECT 1 FROM transcript WHERE conversation_id=?",
-                               (conversation_id,)).fetchone() is not None
-    
+        return self._one("SELECT 1 FROM transcript WHERE conversation_id=?",
+                         (conversation_id,)) is not None
+
     def transcript(self, conversation_id: str) -> dict | None:
-        row = self.db.execute(
+        row = self._one(
             "SELECT body_json FROM transcript WHERE conversation_id=?",
             (conversation_id,),
-        ).fetchone()
+        )
 
         if row is None:
             return None
@@ -209,5 +234,5 @@ class Store:
                  json.dumps(detail) if detail else None))
 
     def audit_for(self, case_ref: str) -> list[dict]:
-        return [dict(r) for r in self.db.execute(
+        return [dict(r) for r in self._all(
             "SELECT * FROM audit_event WHERE case_ref=? ORDER BY id", (case_ref,))]
