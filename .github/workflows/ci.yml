@@ -14,8 +14,7 @@ jobs:
       # Domain suite: stdlib only, no network, no ElevenLabs account
       - run: python -m unittest -v
       # Full suite incl. edge/API tests, with coverage gate
-      # (sprint task: raise floor to 85)
-      - run: coverage run -m pytest -q && coverage report --fail-under=80
+      - run: coverage run -m pytest -q && coverage report --fail-under=85
 
   web:
     runs-on: ubuntu-latest
