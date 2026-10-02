@@ -28,7 +28,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      # Unit/component/integration suite with an 80% coverage floor
+      # Unit/component/integration suite with an 85% coverage floor
       - run: npm run test:coverage
       # Strict type-check plus production build; the build is the deploy artifact
       - run: npm run build
