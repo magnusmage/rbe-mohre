@@ -171,7 +171,7 @@ class Store:
         r = self._one("SELECT * FROM review_item WHERE review_ref=?",
                       (review_ref,))
         return dict(r) if r else None
-    
+
     def active_review(self, case_ref: str, conversation_id: str):
         row = self._one(
             """
@@ -208,7 +208,7 @@ class Store:
     def has_transcript(self, conversation_id: str) -> bool:
         return self._one("SELECT 1 FROM transcript WHERE conversation_id=?",
                          (conversation_id,)) is not None
-    
+
     def transcript(self, conversation_id: str) -> dict | None:
         row = self._one(
             "SELECT body_json FROM transcript WHERE conversation_id=?",

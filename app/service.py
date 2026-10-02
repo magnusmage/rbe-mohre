@@ -83,8 +83,18 @@ def _run(store: Store, conv: str, action: str, case_ref: str, fn) -> dict:
                        "I can't check. I can pass you to a person or arrange a callback.", ref)
     res = fn(worker)
     result = res.to_dict()                                     # pure rule from rules.py
-    store.audit("agent", action, res.status, conv, ref,
-                {"tier": res.tier.value, "rules": [f.rule_id for f in res.findings], "check_result": result})
+    store.audit(
+        "agent",
+        action,
+        res.status,
+        conv,
+        ref,
+        {
+            "tier": res.tier.value,
+            "rules": [f.rule_id for f in res.findings],
+            "check_result": result,
+        },
+    )
     return {"ok": True, **res.to_dict()}
 
 
@@ -251,8 +261,14 @@ def send_to_review(store: Store, conv: str, case_ref: str, tier: str, summary: s
 
     existing = store.active_review(ref, conv)
     if existing:
-        return _refuse(store, conv, "send_to_review", "already_queued",
-                       "A specialist is already reviewing this case. Please wait for their response.", ref)
+        return _refuse(
+            store,
+            conv,
+            "send_to_review",
+            "already_queued",
+            "A specialist is already reviewing this case. Please wait for their response.",
+            ref,
+        )
 
     # floor = highest tier any check produced on this call (invariant 5)
     seen = []

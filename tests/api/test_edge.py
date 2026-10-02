@@ -9,8 +9,8 @@ import respx
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.signature import sign
 from app.settings import settings
+from app.signature import sign
 
 client = TestClient(app)
 
@@ -34,7 +34,7 @@ def test_health_and_data_mode():
     assert r.json()["data_mode"] == "synthetic"
     assert r.headers["X-Data-Mode"] == "synthetic"
     assert r.headers["X-Trace-Id"]
-    
+
 
 def test_structured_logging_generates_trace_id(capsys):
     r = client.get("/health")

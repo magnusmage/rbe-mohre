@@ -9,7 +9,8 @@ import time
 import unittest
 from pathlib import Path
 
-from app import quality, rules, service as svc
+from app import quality, rules
+from app import service as svc
 from app.adapters import SyntheticWPS
 from app.normalise import normalise_ref
 from app.signature import BadSignature, sign, verify
