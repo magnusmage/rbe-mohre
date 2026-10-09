@@ -7,15 +7,15 @@ Every amount is Decimal; every check returns a CheckResult with a reviewed
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
-from enum import Enum
+from decimal import ROUND_HALF_UP, Decimal
+from enum import StrEnum
 
 CENT = Decimal("0.01")
 
 
-class Tier(str, Enum):
+class Tier(StrEnum):
     T0 = "tier_0_standard_review"
     T1 = "tier_1_priority_review"
     T2 = "tier_2_mandatory_human"
@@ -78,8 +78,13 @@ def scope_check(worker: dict, rules: dict, period: str | None = None) -> CheckRe
     if period and period in (worker.get("wage_claim_in_court_periods") or []):
         return CheckResult(
             "scope", "out_of_scope", tier=Tier.T1,
-            say=(f"A wage claim for {period} is already before the court, so I can't re-check it here. "
-                 f"A specialist can explain the court process."))
+            say=(
+                f"A wage claim for {period} is already before the court, "
+                f"so I can't re-check it here. "
+                f"A specialist can explain the court process."
+            ),
+        )
+
     return None
 
 
@@ -100,9 +105,16 @@ def wage_check(worker: dict, period: str, rules: dict) -> CheckResult:
     if paid >= due:
         return CheckResult(
             "wage", "clear", tier=Tier.T0,
-            say=f"For {period}, WPS shows AED {paid}, which matches your contract wage of AED {due}.")
+            say=(
+                f"For {period}, WPS shows AED {paid}, "
+                f"which matches your contract wage of AED {due}."
+            ),
+        )
     gap = due - paid
-    detail = f"Contract total wage AED {due}; WPS shows AED {paid} for {period}; difference AED {gap}"
+    detail = (
+        f"Contract total wage AED {due}; WPS shows AED {paid} for {period}; "
+        f"difference AED {gap}"
+    )
     tier = Tier.T0
     say = detail + "."
     # UC-03: deduction on the CHECKED month only (the amount is fact, the reason is not)
@@ -149,9 +161,12 @@ def timing_check(worker: dict, period: str, rules: dict) -> CheckResult:
     if period in TRANSITION_PERIODS:  # UC-05: the machine does not interpret transitions
         return CheckResult(
             "timing", "ambiguous", tier=Tier.T2,
-            say=(f"The pay for {period} falls on the change between two wage-payment resolutions, "
-                 f"so which rule applies needs a qualified reading. I'm passing this to a specialist "
-                 f"rather than guessing."))
+            say=(
+                f"The pay for {period} falls on the change between two wage-payment resolutions, "
+                f"so which rule applies needs a qualified reading. "
+                f"I'm passing this to a specialist rather than guessing."
+            ),
+        )
     line = next((w for w in worker["wps"] if w["period"] == period), None)
     if line is None or not line.get("paid_on"):
         return CheckResult(
@@ -214,11 +229,17 @@ def settlement_check(worker: dict, rules: dict) -> CheckResult:
             say=(f"From your contract, the gratuity comes to about AED {calc}; "
                  f"the offer of AED {offered} covers it. The decision to sign is yours."))
     gap = calc - offered
-    f = Finding("SETTLEMENT_SHORTFALL",
-                f"Calculated gratuity AED {calc} from basic wage AED {money(worker['basic_wage'])}; "
-                f"offered AED {offered}",
-                g["rule_id"], "Federal Decree-Law 33 of 2021, end-of-service gratuity (basic wage)",
-                True, str(gap))
+    f = Finding(
+        "SETTLEMENT_SHORTFALL",
+        (
+            f"Calculated gratuity AED {calc} from basic wage "
+            f"AED {money(worker['basic_wage'])}; offered AED {offered}"
+        ),
+        g["rule_id"],
+        "Federal Decree-Law 33 of 2021, end-of-service gratuity (basic wage)",
+        True,
+        str(gap)
+    )
     return CheckResult(
         "settlement", "discrepancy", [f], Tier.T1,
         say=(f"From your contract, the gratuity comes to about AED {calc}; the offer is "

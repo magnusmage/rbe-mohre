@@ -15,8 +15,8 @@ from pathlib import Path
 import httpx
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +24,7 @@ from . import service as svc
 from .settings import settings
 from .signature import BadSignature, verify
 from .store import Store
+
 
 def _remove_event(_logger, _method_name, event_dict):
     event_dict.pop("event", None)
@@ -241,7 +242,7 @@ async def post_call(request: Request):
         verify(request.headers.get("elevenlabs-signature", ""), raw,
                settings.elevenlabs_webhook_secret)
     except BadSignature as e:
-        raise HTTPException(401, f"signature_{e}")
+        raise HTTPException(401, f"signature_{e}") from None
     body = json.loads(raw)
     conv = body.get("data", {}).get("conversation_id")
     if not conv:
