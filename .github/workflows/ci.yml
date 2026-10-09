@@ -14,8 +14,7 @@ jobs:
       # Domain suite: stdlib only, no network, no ElevenLabs account
       - run: python -m unittest -v
       # Full suite incl. edge/API tests, with coverage gate
-      # (sprint task: raise floor to 85)
-      - run: coverage run -m pytest -q && coverage report --fail-under=80
+      - run: coverage run -m pytest -q && coverage report --fail-under=85
 
   web:
     runs-on: ubuntu-latest
@@ -29,7 +28,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      # Unit/component/integration suite with an 80% coverage floor
+      # Unit/component/integration suite with an 85% coverage floor
       - run: npm run test:coverage
       # Strict type-check plus production build; the build is the deploy artifact
       - run: npm run build
