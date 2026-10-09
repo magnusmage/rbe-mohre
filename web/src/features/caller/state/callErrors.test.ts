@@ -61,26 +61,33 @@ describe('apiErrorMessage', () => {
 });
 
 describe('apiError', () => {
-  it('shows the work-in-progress notice with a repository link for 502 signed_url_unavailable', () => {
+  it('shows the "deploy your own agent" guidance with a repository link for 502 signed_url_unavailable', () => {
+    // The backend couldn't mint a signed URL (same root cause as the SDK quota
+    // branch), so this card reads with the same demonstration-project copy.
     const error = apiError(new ApiError('http', 'signed_url_unavailable', 502));
-    expect(error.message).toBe('Work is currently in progress. You can review the implementation on GitHub:');
+    expect(error.message).toBe(
+      'This is a demonstration project. To use the voice agent, deploy the preconfigured agent and tools from the /agent directory to your ElevenLabs workspace, replace account-specific placeholders (API key, agent/tool IDs, workspace secrets, and webhook credentials), and test the integration.',
+    );
     expect(error.link).toEqual({ label: PROJECT_REPOSITORY.label, href: PROJECT_REPOSITORY.href });
   });
 
-  it('does not use the notice for a 502 with a different detail', () => {
+  it('does not use the demonstration-project copy for a 502 with a different detail', () => {
     const error = apiError(new ApiError('http', 'upstream_timeout', 502));
     expect(error.link).toBeUndefined();
     expect(error.message).toMatch(/temporarily unavailable/i);
+    expect(error.message).not.toMatch(/demonstration project/i);
   });
 
-  it('does not use the notice for that detail on another status', () => {
-    expect(apiError(new ApiError('http', 'signed_url_unavailable', 500)).link).toBeUndefined();
+  it('does not use that copy for signed_url_unavailable on another status', () => {
+    const error = apiError(new ApiError('http', 'signed_url_unavailable', 500));
+    expect(error.link).toBeUndefined();
+    expect(error.message).not.toMatch(/demonstration project/i);
   });
 
   it('always reports the api source and title', () => {
     const error = apiError(new ApiError('network', 'x'));
     expect(error.source).toBe('api');
-    expect(error.title).toBe("Couldn't start the session");
+    expect(error.title).toBe("Voice Agent Configuration Required");
   });
 });
 
@@ -107,6 +114,54 @@ describe('connectionError', () => {
 
   it('ignores an empty close reason', () => {
     expect(connectionError({ closeReason: '' }).message).toMatch(/couldn't connect you/i);
+  });
+
+  it('shows the "deploy your own agent" guidance when the SDK reports quota_exceeded via closeReason', () => {
+    // Shape of an ElevenLabs SessionConnectionError when the workspace quota
+    // is gone: the WebSocket close carries a reason that mentions quota.
+    const error = connectionError({
+      name: 'SessionConnectionError',
+      message: 'quota_exceeded',
+      closeCode: 1008,
+      closeReason: 'quota_exceeded',
+    });
+    expect(error.source).toBe('connection');
+    expect(error.title).toMatch(/Configuration /i);
+    // The exact copy the operator reads — never the raw server string.
+    expect(error.message).toBe(
+      'This is a demonstration project. To use the voice agent, deploy the preconfigured agent and tools from the /agent directory to your ElevenLabs workspace, replace account-specific placeholders (API key, agent/tool IDs, workspace secrets, and webhook credentials), and test the integration.',
+    );
+    expect(error.link).toEqual({ label: PROJECT_REPOSITORY.label, href: PROJECT_REPOSITORY.href });
+    // And must NOT fall back to the generic close-reason echo.
+    expect(error.message).not.toMatch(/the assistant ended the connection/i);
+  });
+
+  it('matches quota wording case-insensitively and in longer sentences', () => {
+    // Covers minor wording variations ElevenLabs may send on the close frame.
+    const variants = [
+      'Quota exceeded',
+      'This request exceeds your quota.',
+      'insufficient_quota',
+    ];
+    for (const closeReason of variants) {
+      expect(connectionError({ closeReason }).message).toMatch(/demonstration project/i);
+    }
+  });
+
+  it('detects quota via `message` when `closeReason` is absent', () => {
+    // Some SDK paths wrap the server detail into `message` without setting
+    // `closeReason`; the detector must still fire.
+    const error = connectionError(new Error('ElevenLabs: quota_exceeded'));
+    expect(error.message).toMatch(/demonstration project/i);
+    expect(error.title).toMatch(/Configuration /i);
+  });
+
+  it('does not misfire for unrelated close reasons', () => {
+    // "quota" is the specific signal; other reasons must keep the existing echo.
+    const error = connectionError({ closeReason: 'agent unavailable' });
+    expect(error.message).toMatch(/agent unavailable/);
+    expect(error.message).not.toMatch(/demonstration project/i);
+    expect(error.link).toBeUndefined();
   });
 });
 
