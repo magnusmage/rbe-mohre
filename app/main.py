@@ -8,10 +8,12 @@ from __future__ import annotations
 import hmac
 import json
 import time
+import uuid
 from collections import defaultdict, deque
 from pathlib import Path
 
 import httpx
+import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -22,6 +24,20 @@ from . import service as svc
 from .settings import settings
 from .signature import BadSignature, verify
 from .store import Store
+
+def _remove_event(_logger, _method_name, event_dict):
+    event_dict.pop("event", None)
+    return event_dict
+
+
+structlog.configure(
+    processors=[
+        _remove_event,
+        structlog.processors.JSONRenderer(),
+    ]
+)
+
+log = structlog.get_logger()
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 TEMPLATES = Path(__file__).resolve().parent / "templates"
@@ -70,6 +86,25 @@ reviewer_auth = Depends(_bearer(                              # /review/*, /audi
     settings.agent_tool_token,
 ))
 
+@app.middleware("http")
+async def structured_logging(request: Request, call_next):
+    trace_id = request.headers.get("x-trace-id") or uuid.uuid4().hex[:12]
+    started = time.perf_counter()
+
+    resp = await call_next(request)
+
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+
+    log.info(
+        "http_request",
+        trace_id=trace_id,
+        path=request.url.path,
+        status=resp.status_code,
+        ms=elapsed_ms,
+    )
+
+    resp.headers["X-Trace-Id"] = trace_id
+    return resp
 
 @app.middleware("http")
 async def data_mode(request: Request, call_next):
