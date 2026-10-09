@@ -61,26 +61,33 @@ describe('apiErrorMessage', () => {
 });
 
 describe('apiError', () => {
-  it('shows the work-in-progress notice with a repository link for 502 signed_url_unavailable', () => {
+  it('shows the "deploy your own agent" guidance with a repository link for 502 signed_url_unavailable', () => {
+    // The backend couldn't mint a signed URL (same root cause as the SDK quota
+    // branch), so this card reads with the same demonstration-project copy.
     const error = apiError(new ApiError('http', 'signed_url_unavailable', 502));
-    expect(error.message).toBe('Work is currently in progress. You can review the implementation on GitHub:');
+    expect(error.message).toBe(
+      'This is a demonstration project. To use the voice agent, deploy the preconfigured agent and tools from the /agent directory to your ElevenLabs workspace, replace account-specific placeholders (API key, agent/tool IDs, workspace secrets, and webhook credentials), and test the integration.',
+    );
     expect(error.link).toEqual({ label: PROJECT_REPOSITORY.label, href: PROJECT_REPOSITORY.href });
   });
 
-  it('does not use the notice for a 502 with a different detail', () => {
+  it('does not use the demonstration-project copy for a 502 with a different detail', () => {
     const error = apiError(new ApiError('http', 'upstream_timeout', 502));
     expect(error.link).toBeUndefined();
     expect(error.message).toMatch(/temporarily unavailable/i);
+    expect(error.message).not.toMatch(/demonstration project/i);
   });
 
-  it('does not use the notice for that detail on another status', () => {
-    expect(apiError(new ApiError('http', 'signed_url_unavailable', 500)).link).toBeUndefined();
+  it('does not use that copy for signed_url_unavailable on another status', () => {
+    const error = apiError(new ApiError('http', 'signed_url_unavailable', 500));
+    expect(error.link).toBeUndefined();
+    expect(error.message).not.toMatch(/demonstration project/i);
   });
 
   it('always reports the api source and title', () => {
     const error = apiError(new ApiError('network', 'x'));
     expect(error.source).toBe('api');
-    expect(error.title).toBe("Couldn't start the session");
+    expect(error.title).toBe("Voice Agent Configuration Required");
   });
 });
 

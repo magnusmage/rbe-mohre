@@ -71,12 +71,18 @@ function isSignedUrlUnavailable(error: unknown): boolean {
 }
 
 export function apiError(error: unknown): CallError {
-  const title = "Couldn't start the session";
+  const title = "Voice Agent Configuration Required";
   if (isSignedUrlUnavailable(error)) {
+    // Same root cause as the SDK's quota-exceeded path (the backend couldn't
+    // mint a signed URL from ElevenLabs), so the operator sees the same
+    // "deploy your own agent" guidance here as on the connection-side quota
+    // branch. Title stays the generic session-start one and link stays the
+    // repository, matching the existing shape of this card.
     return {
       source: 'api',
       title,
-      message: 'Work is currently in progress. You can review the implementation on GitHub:',
+      message:
+        'This is a demonstration project. To use the voice agent, deploy the preconfigured agent and tools from the /agent directory to your ElevenLabs workspace, replace account-specific placeholders (API key, agent/tool IDs, workspace secrets, and webhook credentials), and test the integration.',
       link: { ...PROJECT_REPOSITORY },
     };
   }
