@@ -93,9 +93,38 @@ function hasCloseReason(error: unknown): error is { closeReason: string } {
   );
 }
 
+/**
+ * ElevenLabs rejects the WebSocket handshake with a close reason that mentions
+ * "quota" when the workspace has run out of agent minutes. The SDK surfaces it
+ * on the thrown `SessionConnectionError` as either `closeReason` or the base
+ * `message` (close code is 1008/4001 in practice but kept out of the match so
+ * minor server-side wording changes don't bypass this check).
+ */
+function isQuotaExceeded(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const parts: string[] = [];
+  const close = (error as { closeReason?: unknown }).closeReason;
+  if (typeof close === 'string') parts.push(close);
+  const message = (error as { message?: unknown }).message;
+  if (typeof message === 'string') parts.push(message);
+  return parts.some((text) => /quota/i.test(text));
+}
+
 export function connectionError(error: unknown): CallError {
   // The SDK may itself request the microphone while connecting.
   if (toMicrophoneErrorCode(error)) return microphoneError(error);
+
+  // Quota exceeded is checked before the generic closeReason echo so operators
+  // see the "deploy your own agent" guidance instead of the raw server string.
+  if (isQuotaExceeded(error)) {
+    return {
+      source: 'connection',
+      title: 'Voice Agent Configuration Required',
+      message:
+        'This is a demonstration project. To use the voice agent, deploy the preconfigured agent and tools from the /agent directory to your ElevenLabs workspace, replace account-specific placeholders (API key, agent/tool IDs, workspace secrets, and webhook credentials), and test the integration.',
+      link: { ...PROJECT_REPOSITORY },
+    };
+  }
 
   let message = "We couldn't connect you to the assistant. Please try again.";
   if (error instanceof VoiceConnectionTimeoutError) {

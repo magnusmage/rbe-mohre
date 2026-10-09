@@ -105,6 +105,30 @@ describe('startCall', () => {
     expect(state.startedAt).toBeNull();
   });
 
+  it('surfaces the ElevenLabs quota-exceeded guidance when the SDK rejects the connect', async () => {
+    // The signed URL fetch succeeds; the SDK then rejects because the workspace
+    // quota is exhausted. The user-visible error must be the "deploy your own
+    // agent" guidance rather than the raw server close reason.
+    const store = makeStore();
+    const quotaError = Object.assign(new Error('quota_exceeded'), {
+      name: 'SessionConnectionError',
+      closeCode: 1008,
+      closeReason: 'quota_exceeded',
+    });
+    connectMock.mockRejectedValue(quotaError);
+
+    await store.dispatch(startCall());
+
+    const state = selectCallSession(store);
+    expect(state.status).toBe('failed');
+    expect(state.error?.source).toBe('connection');
+    expect(state.error?.title).toMatch(/Configuration /i);
+    expect(state.error?.message).toContain('demonstration project');
+    expect(state.error?.message).toContain('/agent');
+    expect(state.error?.link?.label).toBe('rbe-mohre');
+    expect(state.startedAt).toBeNull();
+  });
+
   it('ignores a duplicate start while one is already running', async () => {
     const store = makeStore();
     let release: (id: string) => void = () => {};

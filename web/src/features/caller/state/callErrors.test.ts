@@ -108,6 +108,54 @@ describe('connectionError', () => {
   it('ignores an empty close reason', () => {
     expect(connectionError({ closeReason: '' }).message).toMatch(/couldn't connect you/i);
   });
+
+  it('shows the "deploy your own agent" guidance when the SDK reports quota_exceeded via closeReason', () => {
+    // Shape of an ElevenLabs SessionConnectionError when the workspace quota
+    // is gone: the WebSocket close carries a reason that mentions quota.
+    const error = connectionError({
+      name: 'SessionConnectionError',
+      message: 'quota_exceeded',
+      closeCode: 1008,
+      closeReason: 'quota_exceeded',
+    });
+    expect(error.source).toBe('connection');
+    expect(error.title).toMatch(/Configuration /i);
+    // The exact copy the operator reads — never the raw server string.
+    expect(error.message).toBe(
+      'This is a demonstration project. To use the voice agent, deploy the preconfigured agent and tools from the /agent directory to your ElevenLabs workspace, replace account-specific placeholders (API key, agent/tool IDs, workspace secrets, and webhook credentials), and test the integration.',
+    );
+    expect(error.link).toEqual({ label: PROJECT_REPOSITORY.label, href: PROJECT_REPOSITORY.href });
+    // And must NOT fall back to the generic close-reason echo.
+    expect(error.message).not.toMatch(/the assistant ended the connection/i);
+  });
+
+  it('matches quota wording case-insensitively and in longer sentences', () => {
+    // Covers minor wording variations ElevenLabs may send on the close frame.
+    const variants = [
+      'Quota exceeded',
+      'This request exceeds your quota.',
+      'insufficient_quota',
+    ];
+    for (const closeReason of variants) {
+      expect(connectionError({ closeReason }).message).toMatch(/demonstration project/i);
+    }
+  });
+
+  it('detects quota via `message` when `closeReason` is absent', () => {
+    // Some SDK paths wrap the server detail into `message` without setting
+    // `closeReason`; the detector must still fire.
+    const error = connectionError(new Error('ElevenLabs: quota_exceeded'));
+    expect(error.message).toMatch(/demonstration project/i);
+    expect(error.title).toMatch(/Configuration /i);
+  });
+
+  it('does not misfire for unrelated close reasons', () => {
+    // "quota" is the specific signal; other reasons must keep the existing echo.
+    const error = connectionError({ closeReason: 'agent unavailable' });
+    expect(error.message).toMatch(/agent unavailable/);
+    expect(error.message).not.toMatch(/demonstration project/i);
+    expect(error.link).toBeUndefined();
+  });
 });
 
 describe('droppedCallError', () => {
