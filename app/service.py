@@ -21,7 +21,13 @@ from __future__ import annotations
 import json
 
 from . import rules
-from .adapters import DependencyDown, SyntheticContracts, SyntheticWPS
+from .adapters import (
+    ContractAdapter,
+    DependencyDown,
+    SyntheticContracts,
+    SyntheticWPS,
+    WPSAdapter,
+)
 from .normalise import PERIOD, normalise_ref
 from .registry import DECISIONS
 from .store import Store
@@ -35,14 +41,18 @@ class ScopeError(Exception):
 
 # ------------------------------------------------------------- composition
 
-def _adapters(store: Store):
+def _adapters(store: Store) -> tuple[ContractAdapter, WPSAdapter]:
     """Adapters are attached at composition (main.py / tests). Default:
     synthetic adapters over the fixture set."""
-    if store.contracts is None:
-        store.contracts = SyntheticContracts(store.workers)
-    if store.wps is None:
-        store.wps = SyntheticWPS(store.workers)
-    return store.contracts, store.wps
+    contracts = store.contracts
+    wps = store.wps
+    if contracts is None:
+        contracts = SyntheticContracts(store.workers)
+        store.contracts = contracts
+    if wps is None:
+        wps = SyntheticWPS(store.workers)
+        store.wps = wps
+    return contracts, wps
 
 
 def _load_worker(store: Store, worker_id: str) -> dict:
@@ -94,6 +104,8 @@ def verify_session(store: Store, conv: str, worker_id: str, case_ref: str, pin: 
     wid, ref, code = normalise_ref(worker_id), normalise_ref(case_ref), normalise_ref(pin)
     store.start_session(conv)
     s = store.session(conv)
+    if s is None:
+        raise RuntimeError("call session was not created")
     if s["locked"]:
         return _refuse(store, conv, "verify_session", "verification_locked",
                        "I can't verify you on this call. Please try the MoHRE app "
@@ -360,4 +372,3 @@ def review_detail(store: Store, review_ref: str) -> dict:
         "transcript": transcript,
         "audit": store.audit_for(case_ref),
     }
-

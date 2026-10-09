@@ -9,10 +9,12 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -r requirements-dev.txt
       - run: ruff check app tests
+      # Non-strict type-check gate; tighten incrementally toward strict mode.
+      - run: mypy app
       # Domain suite: stdlib only, no network, no ElevenLabs account
       - run: python -m unittest -v
       # Full suite incl. edge/API tests, with coverage gate
-      # (sprint tasks: raise floor to 85, add mypy gate)
+      # (sprint task: raise floor to 85)
       - run: coverage run -m pytest -q && coverage report --fail-under=80
 
   web:

@@ -11,6 +11,10 @@ import json
 import sqlite3
 import threading
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .adapters import ContractAdapter, WPSAdapter
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS call_session (
@@ -67,8 +71,8 @@ class Store:
         # Adapter attachment points (C6/C7): set by the composition root
         # (main.py) or by tests; service._adapters fills in synthetic
         # defaults when left as None.
-        self.contracts = None
-        self.wps = None
+        self.contracts: ContractAdapter | None = None
+        self.wps: WPSAdapter | None = None
 
     # ------------------------------------------------------------- plumbing
     def _w(self, sql: str, args=()) -> int:
