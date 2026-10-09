@@ -1,9 +1,15 @@
 import { screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ROUTES } from '@/app/routes';
 import { makeStore, renderWithProviders } from '@/test/utils';
+import type { TranscriptEntry } from '@/types';
 import type { CallSessionState } from '../state/callSessionSlice';
 import { CallEndedScreen } from './CallEndedScreen';
+
+const SAMPLE_TRANSCRIPT: TranscriptEntry[] = [
+  { who: 'Agent', time: '00:01', text: 'Hello, this call is recorded.' },
+  { who: 'Worker', time: '00:12', text: 'My July pay was short.' },
+];
 
 const renderEnded = (state: Partial<CallSessionState> = {}) =>
   renderWithProviders(<CallEndedScreen />, {
@@ -63,5 +69,79 @@ describe('CallEndedScreen', () => {
     await user.click(screen.getByRole('button', { name: 'New call' }));
 
     await waitFor(() => expect(location()).toBe(ROUTES.callerReady));
+  });
+});
+
+describe('CallEndedScreen — transcript', () => {
+  it('renders the transcript captured from the SDK during the call', () => {
+    renderEnded({ status: 'ended', durationSeconds: 10, transcript: SAMPLE_TRANSCRIPT });
+
+    expect(screen.getByText('Hello, this call is recorded.')).toBeInTheDocument();
+    expect(screen.getByText('My July pay was short.')).toBeInTheDocument();
+  });
+
+  it('shows an empty-state note when no transcript was captured', () => {
+    renderEnded({ status: 'ended', durationSeconds: 10, transcript: [] });
+
+    expect(screen.getByText(/no transcript was captured/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /download transcript/i })).toBeDisabled();
+  });
+});
+
+describe('CallEndedScreen — download transcript', () => {
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    vi.restoreAllMocks();
+  });
+
+  it('downloads a text file of the transcript when the user clicks Download', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    URL.revokeObjectURL = vi.fn();
+    // Capture the raw parts handed to the Blob constructor, since jsdom's Blob
+    // has no `.text()` we can read back and object-URL fetch is unavailable too.
+    const OriginalBlob = window.Blob;
+    const captured: { parts: BlobPart[]; type: string | undefined }[] = [];
+    class SpyBlob extends OriginalBlob {
+      constructor(parts?: BlobPart[], options?: BlobPropertyBag) {
+        super(parts, options);
+        captured.push({ parts: parts ?? [], type: options?.type });
+      }
+    }
+    (window as unknown as { Blob: typeof Blob }).Blob = SpyBlob as unknown as typeof Blob;
+
+    // The anchor click would otherwise navigate the jsdom window mid-test.
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      const { user } = renderEnded({ status: 'ended', durationSeconds: 10, transcript: SAMPLE_TRANSCRIPT });
+
+      await user.click(screen.getByRole('button', { name: /download transcript/i }));
+
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+      expect(anchorClick).toHaveBeenCalledTimes(1);
+      expect(captured).toHaveLength(1);
+      expect(captured[0].type).toContain('text/plain');
+      const text = captured[0].parts.join('');
+      expect(text).toContain('00:01  Agent: Hello, this call is recorded.');
+      expect(text).toContain('00:12  Worker: My July pay was short.');
+    } finally {
+      (window as unknown as { Blob: typeof Blob }).Blob = OriginalBlob;
+    }
+  });
+
+  it('does not download when there is no transcript to save', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    URL.revokeObjectURL = vi.fn();
+
+    const { user } = renderEnded({ status: 'ended', durationSeconds: 10, transcript: [] });
+
+    const button = screen.getByRole('button', { name: /download transcript/i });
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 });

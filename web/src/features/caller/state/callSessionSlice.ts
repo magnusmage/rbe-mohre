@@ -1,9 +1,16 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { DisconnectionDetails } from '@elevenlabs/client';
 import type { AppThunk, RootState } from '@/store';
+import { formatDuration } from '@/lib/time';
 import { ensureMicrophoneAccess } from '@/services/media/microphone';
 import { getSignedUrl } from '@/services/session/sessionApi';
-import { voiceAgent, type AgentConnectionStatus, type AgentMode } from '@/services/voice/voiceAgent';
+import {
+  voiceAgent,
+  type AgentConnectionStatus,
+  type AgentMode,
+  type TranscriptMessage,
+} from '@/services/voice/voiceAgent';
+import type { TranscriptEntry } from '@/types';
 import {
   apiError,
   connectionError,
@@ -39,6 +46,12 @@ export interface CallSessionState {
   /** Final duration, preserved for the Call ended screen. */
   durationSeconds: number | null;
   /**
+   * Live transcript, appended as the SDK emits finalised turns. Preserved through
+   * `ended` so the Call ended screen can display and download it; cleared on the
+   * next Start Call attempt.
+   */
+  transcript: TranscriptEntry[];
+  /**
    * State of `GET /session/signed-url`. The URL itself is short-lived and single-use,
    * so it is handed straight to the voice agent rather than kept in the store.
    */
@@ -55,6 +68,7 @@ const initialState: CallSessionState = {
   muted: false,
   startedAt: null,
   durationSeconds: null,
+  transcript: [],
   signedUrlRequest: { status: 'idle', error: null },
 };
 
@@ -121,6 +135,7 @@ export const startCall = createAsyncThunk<string, void, { state: RootState; reje
         onDisconnect: (details) => dispatch(callSessionSlice.actions.sessionDisconnected(details)),
         onError: (message) => dispatch(callSessionSlice.actions.agentErrorReported(message)),
         onStatusChange: (status) => dispatch(callSessionSlice.actions.agentStatusChanged(status)),
+        onTranscriptMessage: (message) => dispatch(callSessionSlice.actions.transcriptMessageAppended(message)),
       });
     } catch (error) {
       return rejectWithValue(connectionError(error));
@@ -178,6 +193,26 @@ const callSessionSlice = createSlice({
     mutedChanged(state, action: PayloadAction<boolean>) {
       state.muted = action.payload;
     },
+    /**
+     * SDK `onMessage` — a finalised transcript turn. The SDK does not carry a
+     * timestamp, so we stamp elapsed-since-start on receipt to match the mm:ss
+     * format the transcript component expects.
+     */
+    transcriptMessageAppended(state, action: PayloadAction<TranscriptMessage>) {
+      // Drop messages that could only be stale: no call has started, or the
+      // previous call is already finished. `connecting` is accepted on purpose —
+      // the SDK can deliver the agent's opening turn on the same tick it resolves
+      // startSession, before startCall.fulfilled has flipped status to `connected`.
+      if (state.status === 'idle' || state.status === 'ended' || state.status === 'failed') return;
+      const { role, message } = action.payload;
+      const elapsedSeconds =
+        state.startedAt === null ? 0 : Math.max(0, Math.round((Date.now() - state.startedAt) / 1000));
+      state.transcript.push({
+        who: role === 'agent' ? 'Agent' : 'Worker',
+        time: formatDuration(elapsedSeconds),
+        text: message,
+      });
+    },
     /** SDK `onDisconnect`: agent hang-up, user end, or an unexpected drop. */
     sessionDisconnected(state, action: PayloadAction<DisconnectionDetails>) {
       // Failures while still connecting are reported through startCall.rejected.
@@ -216,6 +251,8 @@ const callSessionSlice = createSlice({
         state.muted = false;
         state.startedAt = null;
         state.durationSeconds = null;
+        // Fresh call — the previous transcript belonged to the previous session.
+        state.transcript = [];
       })
       .addCase(startCall.fulfilled, (state, action) => {
         state.status = 'connected';
@@ -263,3 +300,4 @@ export const selectIsEndingCall = (state: RootState) =>
   state.callSession.status === 'ending' || state.callSession.agentStatus === 'disconnecting';
 export const selectCallStartedAt = (state: RootState) => state.callSession.startedAt;
 export const selectCallDurationSeconds = (state: RootState) => state.callSession.durationSeconds;
+export const selectCallTranscript = (state: RootState) => state.callSession.transcript;
