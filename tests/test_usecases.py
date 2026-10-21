@@ -327,6 +327,30 @@ class PlatformContract(unittest.TestCase):
         self.assertEqual(node_union, registry.AGENT_TOOLS)
         self.assertFalse(registry.REVIEWER_ONLY & registry.AGENT_TOOLS)
 
+    def test_conversation_id_bound_to_platform_dynamic_variable(self):
+        """Every tool_configs/*.json must bind conversation_id to the platform
+        system dynamic variable (ADR D9, invariant 2). If the LLM supplied
+        the id, a manipulated model could cross call boundaries. The
+        existing test_agent_configs_match_registry test guards which tools
+        exist; this guards how they receive conversation_id."""
+        agent_dir = ROOT / "agent"
+        tools_index = json.loads((agent_dir / "tools.json").read_text())
+        self.assertTrue(tools_index["tools"], "tools.json must list the tools")
+        for entry in tools_index["tools"]:
+            config_path = entry["config"]
+            cfg = json.loads((agent_dir / config_path).read_text())
+            with self.subTest(tool=config_path):
+                body = cfg["api_schema"]["request_body_schema"]
+                required = body.get("required", [])
+                self.assertIn("conversation_id", required,
+                              f"{config_path}: conversation_id must be a required field")
+                prop = body["properties"]["conversation_id"]
+                self.assertEqual(prop.get("dynamic_variable"),
+                                 "system__conversation_id",
+                                 f"{config_path}: conversation_id must bind to the "
+                                 f"platform system dynamic variable, not the LLM "
+                                 f"(ADR D9); got {prop!r}")
+
 
 class MoneyAndGratuity(unittest.TestCase):
     def test_decimal_rounding_and_cap(self):
